@@ -12,6 +12,7 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 
 from auth.okta_auth import get_okta_auth, OktaAuth
+from auth.okta_cross_app_access import get_cross_app_manager
 
 # Load environment variables
 load_dotenv()
@@ -138,21 +139,25 @@ async def chat(
             }
             logger.info(f"User authenticated: {user_info.get('email', 'unknown')}")
 
-            # Perform ID-JAG token exchange for MCP access
-            logger.info("Attempting ID-JAG token exchange...")
-            mcp_token_result = await okta_auth.exchange_token_for_mcp(user_token)
+            # Perform ID-JAG token exchange for MCP access using the new SDK
+            logger.info("Attempting ID-JAG token exchange via Okta AI SDK...")
+            cross_app_manager = get_cross_app_manager()
+            mcp_token_result = await cross_app_manager.exchange_id_to_mcp_token(user_token)
 
-            token_exchanges.append({
-                "type": "ID-JAG Token Exchange",
-                "from": "User ID Token",
-                "to": "MCP Access Token",
-                "audience": okta_auth.mcp_audience,
-                "scopes": mcp_token_result.get("scope", "").split(),
-                "success": True,
-                "demo_mode": mcp_token_result.get("demo_mode", False),
-            })
-
-            logger.info(f"Token exchange successful! Scopes: {mcp_token_result.get('scope')}")
+            if mcp_token_result:
+                token_exchanges.append({
+                    "type": "ID-JAG Token Exchange",
+                    "from": "User ID Token",
+                    "to": "MCP Access Token",
+                    "audience": okta_auth.mcp_audience,
+                    "scopes": mcp_token_result.get("scope", "").split() if mcp_token_result.get("scope") else [],
+                    "success": True,
+                    "demo_mode": mcp_token_result.get("demo_mode", False),
+                    "subject": mcp_token_result.get("subject"),
+                })
+                logger.info(f"Token exchange successful! Scopes: {mcp_token_result.get('scope')}")
+            else:
+                raise ValueError("Token exchange returned no result")
 
         except Exception as e:
             logger.error(f"Token exchange failed: {e}")
