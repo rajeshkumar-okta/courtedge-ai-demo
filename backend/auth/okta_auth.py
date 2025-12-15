@@ -196,23 +196,43 @@ class OktaAuth:
                 logger.debug("Returning cached MCP token")
                 return cached["response"]
 
-        # Create client assertion (JWT Bearer)
-        try:
-            client_assertion = self._create_client_assertion(self.mcp_token_endpoint)
-        except Exception as e:
-            logger.error(f"Failed to create client assertion: {e}")
-            raise ValueError(f"Failed to authenticate agent: {e}")
+        # Token exchange request - use client_secret for now
+        # TODO: Implement proper AI Agent JWT Bearer once app-agent linking is configured
+        client_secret = os.getenv("OKTA_CLIENT_SECRET", "")
 
-        # Token exchange request
-        data = {
-            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-            "subject_token": user_token,
-            "subject_token_type": "urn:ietf:params:oauth:token-type:id_token",
-            "audience": self.mcp_audience,
-            "scope": scope_string,
-            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            "client_assertion": client_assertion,
-        }
+        if client_secret:
+            # Use client_secret authentication
+            logger.info("Using client_secret authentication for token exchange")
+            data = {
+                "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                "client_id": self.client_id,
+                "client_secret": client_secret,
+                "subject_token": user_token,
+                "subject_token_type": "urn:ietf:params:oauth:token-type:id_token",
+                "audience": self.mcp_audience,
+                "scope": scope_string,
+            }
+        elif self.agent_private_key:
+            # Use JWT Bearer with agent private key
+            logger.info("Using JWT Bearer authentication for token exchange")
+            try:
+                client_assertion = self._create_client_assertion(self.mcp_token_endpoint)
+            except Exception as e:
+                logger.error(f"Failed to create client assertion: {e}")
+                raise ValueError(f"Failed to authenticate agent: {e}")
+
+            data = {
+                "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                "client_id": self.client_id,
+                "subject_token": user_token,
+                "subject_token_type": "urn:ietf:params:oauth:token-type:id_token",
+                "audience": self.mcp_audience,
+                "scope": scope_string,
+                "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                "client_assertion": client_assertion,
+            }
+        else:
+            raise ValueError("No authentication method available (need client_secret or agent private key)")
 
         async with httpx.AsyncClient() as client:
             logger.info(f"Exchanging token for MCP access, audience: {self.mcp_audience}")
