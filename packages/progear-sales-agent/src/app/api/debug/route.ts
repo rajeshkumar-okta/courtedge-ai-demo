@@ -13,5 +13,7 @@ export async function GET() {
     hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
     hasNextAuthUrl: !!process.env.NEXTAUTH_URL,
     nextAuthUrl: process.env.NEXTAUTH_URL || 'NOT SET',
+    hasApiUrl: !!process.env.NEXT_PUBLIC_API_URL,
+    apiUrl: process.env.NEXT_PUBLIC_API_URL || 'NOT SET (will use localhost:8000)',
   });
 }
