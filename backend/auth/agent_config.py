@@ -93,7 +93,7 @@ def get_agent_config(agent_type: str) -> Optional[AgentConfig]:
             auth_server_id=os.getenv("OKTA_INVENTORY_AUTH_SERVER_ID",
                                     os.getenv("OKTA_MCP_AUTH_SERVER_ID", "")),
             audience=os.getenv("OKTA_INVENTORY_AUDIENCE", "api://progear-inventory"),
-            scopes=["inventory:read", "inventory:write", "inventory:alert"],
+            scopes=["inventory:read"],  # Only request read - Okta policy controls what's granted
             description="Stock levels, products, and warehouse",
             color="#10b981",  # Green
         ),
@@ -123,7 +123,7 @@ def get_agent_config(agent_type: str) -> Optional[AgentConfig]:
             auth_server_id=os.getenv("OKTA_PRICING_AUTH_SERVER_ID",
                                     os.getenv("OKTA_MCP_AUTH_SERVER_ID", "")),
             audience=os.getenv("OKTA_PRICING_AUDIENCE", "api://progear-pricing"),
-            scopes=["pricing:read", "pricing:margin", "pricing:discount"],
+            scopes=["pricing:read"],  # Only request read - Finance gets full access via Okta policy
             description="Pricing, margins, and discounts",
             color="#f59e0b",  # Orange
         ),
