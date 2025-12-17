@@ -108,13 +108,13 @@ class MultiAgentTokenExchange:
         """
         config = get_agent_config(agent_type)
         if not config:
-            return self._demo_result(agent_type, user_id_token)
+            return self._demo_result(agent_type, user_id_token, requested_scopes)
 
         scopes = requested_scopes or config.scopes
 
         # Check if SDK is available for this agent
         if agent_type not in self._sdks:
-            return self._demo_result(agent_type, user_id_token)
+            return self._demo_result(agent_type, user_id_token, scopes)
 
         sdk = self._sdks[agent_type]
         okta_config = self._configs[agent_type]
@@ -162,8 +162,10 @@ class MultiAgentTokenExchange:
                 "token_type": getattr(token_result, "token_type", "Bearer"),
                 "expires_in": token_result.expires_in,
                 "scopes": scopes,
+                "requested_scopes": scopes,  # Track what was requested
                 "agent_info": {
-                    "name": config.name,
+                    "name": config.name,  # For Token Exchange card (e.g., "Inventory MCP")
+                    "display_name": config.display_name,  # For Agent Flow card (e.g., "Inventory Agent")
                     "type": agent_type,
                     "agent_id": config.agent_id,
                     "color": config.color,
@@ -179,25 +181,27 @@ class MultiAgentTokenExchange:
 
             # Check for access denied errors
             if "no_matching_policy" in error_str or "access_denied" in error_str:
-                logger.info(f"[{agent_type}] ACCESS DENIED for user - policy restriction")
+                logger.info(f"[{agent_type}] ACCESS DENIED for user - policy restriction. Requested scopes: {scopes}")
                 return {
                     "success": False,
                     "access_denied": True,
                     "access_token": None,
                     "scopes": [],
+                    "requested_scopes": scopes,  # What was requested but denied
                     "agent_info": {
                         "name": config.name,
+                        "display_name": config.display_name,
                         "type": agent_type,
                         "color": config.color,
                     },
-                    "error": "User does not have access to this agent",
+                    "error": f"Access denied for scope(s): {', '.join(scopes)}",
                     "error_code": "access_denied",
                     "demo_mode": False,
                 }
 
             # Other errors
             logger.error(f"[{agent_type}] Token exchange failed: {e}")
-            return self._error_result(agent_type, config, str(e))
+            return self._error_result(agent_type, config, str(e), scopes)
 
     def _get_main_sdk(self, agent_config: AgentConfig):
         """Get or create an SDK for the main auth server (for ID-JAG exchange)."""
@@ -218,18 +222,21 @@ class MultiAgentTokenExchange:
             logger.error(f"Failed to create main SDK: {e}")
             return None
 
-    def _demo_result(self, agent_type: str, user_id_token: str) -> Dict[str, Any]:
+    def _demo_result(self, agent_type: str, user_id_token: str, requested_scopes: Optional[List[str]] = None) -> Dict[str, Any]:
         """Return demo mode result when SDK is not configured."""
         demo_config = DEMO_AGENTS.get(agent_type, {})
+        scopes = requested_scopes or demo_config.get("scopes", [])
         return {
             "success": True,
             "access_denied": False,
             "access_token": f"demo-{agent_type}-token-{int(datetime.now().timestamp())}",
             "token_type": "Bearer",
             "expires_in": 3600,
-            "scopes": demo_config.get("scopes", []),
+            "scopes": scopes,
+            "requested_scopes": scopes,
             "agent_info": {
-                "name": demo_config.get("name", f"ProGear {agent_type.title()} Agent"),
+                "name": demo_config.get("name", f"{agent_type.title()} MCP"),
+                "display_name": demo_config.get("display_name", f"{agent_type.title()} Agent"),
                 "type": agent_type,
                 "color": demo_config.get("color", "#888888"),
             },
@@ -238,7 +245,7 @@ class MultiAgentTokenExchange:
         }
 
     def _error_result(
-        self, agent_type: str, config: Optional[AgentConfig], error: str
+        self, agent_type: str, config: Optional[AgentConfig], error: str, requested_scopes: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """Return error result."""
         return {
@@ -246,8 +253,10 @@ class MultiAgentTokenExchange:
             "access_denied": False,
             "access_token": None,
             "scopes": [],
+            "requested_scopes": requested_scopes or [],
             "agent_info": {
-                "name": config.name if config else f"ProGear {agent_type.title()} Agent",
+                "name": config.name if config else f"{agent_type.title()} MCP",
+                "display_name": config.display_name if config else f"{agent_type.title()} Agent",
                 "type": agent_type,
                 "color": config.color if config else "#888888",
             },
@@ -258,7 +267,8 @@ class MultiAgentTokenExchange:
     async def exchange_for_all_agents(
         self,
         user_id_token: str,
-        agent_types: Optional[List[str]] = None
+        agent_types: Optional[List[str]] = None,
+        agent_scopes: Optional[Dict[str, List[str]]] = None
     ) -> Dict[str, Dict[str, Any]]:
         """
         Exchange tokens for multiple agents at once.
@@ -266,6 +276,7 @@ class MultiAgentTokenExchange:
         Args:
             user_id_token: User's ID token
             agent_types: List of agent types, or None for all
+            agent_scopes: Optional dict mapping agent_type to specific scopes to request
 
         Returns:
             Dict mapping agent_type to exchange result
@@ -275,8 +286,10 @@ class MultiAgentTokenExchange:
 
         results = {}
         for agent_type in agent_types:
+            # Get specific scopes for this agent if provided
+            scopes = agent_scopes.get(agent_type) if agent_scopes else None
             results[agent_type] = await self.exchange_token_for_agent(
-                agent_type, user_id_token
+                agent_type, user_id_token, scopes
             )
 
         return results

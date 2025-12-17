@@ -10,6 +10,7 @@ interface TokenExchange {
   access_denied: boolean;
   status: string;
   scopes: string[];
+  requested_scopes?: string[];  // What was requested (shown for denied cases)
   error?: string;
   demo_mode: boolean;
 }
@@ -105,17 +106,34 @@ export default function TokenExchangeCard({ exchanges }: Props) {
                 </div>
               </div>
 
-              {/* Scopes */}
-              {exchange.success && exchange.scopes.length > 0 && (
+              {/* Granted Scopes */}
+              {exchange.success && !exchange.access_denied && exchange.scopes.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {exchange.scopes.map((scope, sIdx) => (
                     <span
                       key={sIdx}
-                      className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded-full font-mono"
+                      className="px-2 py-0.5 bg-success-green/10 text-success-green text-[10px] rounded-full font-mono border border-success-green/30"
                     >
                       {scope}
                     </span>
                   ))}
+                </div>
+              )}
+
+              {/* Denied Scopes - show what was requested but denied */}
+              {exchange.access_denied && exchange.requested_scopes && exchange.requested_scopes.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-[10px] text-gray-500 mb-1">Requested scope(s):</div>
+                  <div className="flex flex-wrap gap-1">
+                    {exchange.requested_scopes.map((scope, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className="px-2 py-0.5 bg-error-red/10 text-error-red text-[10px] rounded-full font-mono border border-error-red/30 line-through"
+                      >
+                        {scope}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
 

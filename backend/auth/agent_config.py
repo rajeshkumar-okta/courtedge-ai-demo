@@ -27,13 +27,14 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AgentConfig:
     """Configuration for a single AI agent."""
-    name: str
+    name: str  # MCP name for Token Exchange card (e.g., "Inventory MCP")
+    display_name: str  # Agent name for Agent Flow card (e.g., "Inventory Agent")
     agent_type: str  # sales, inventory, customer, pricing
     agent_id: str  # wlp...
     private_key: Optional[Dict[str, Any]]  # JWK private key
     auth_server_id: str  # aus...
     audience: str  # api://progear-...
-    scopes: List[str]
+    scopes: List[str]  # All possible scopes for this MCP
     description: str
     color: str  # For UI display
 
@@ -68,7 +69,8 @@ def get_agent_config(agent_type: str) -> Optional[AgentConfig]:
     """
     configs = {
         AGENT_SALES: AgentConfig(
-            name="ProGear Sales Agent",
+            name="Sales MCP",
+            display_name="Sales Agent",
             agent_type=AGENT_SALES,
             agent_id=os.getenv("OKTA_AI_AGENT_SALES_ID", os.getenv("OKTA_AI_AGENT_ID", "")),
             private_key=_parse_private_key(
@@ -83,7 +85,8 @@ def get_agent_config(agent_type: str) -> Optional[AgentConfig]:
             color="#3b82f6",  # Blue
         ),
         AGENT_INVENTORY: AgentConfig(
-            name="ProGear Inventory Agent",
+            name="Inventory MCP",
+            display_name="Inventory Agent",
             agent_type=AGENT_INVENTORY,
             agent_id=os.getenv("OKTA_AI_AGENT_INVENTORY_ID", os.getenv("OKTA_AI_AGENT_ID", "")),
             private_key=_parse_private_key(
@@ -93,12 +96,13 @@ def get_agent_config(agent_type: str) -> Optional[AgentConfig]:
             auth_server_id=os.getenv("OKTA_INVENTORY_AUTH_SERVER_ID",
                                     os.getenv("OKTA_MCP_AUTH_SERVER_ID", "")),
             audience=os.getenv("OKTA_INVENTORY_AUDIENCE", "api://progear-inventory"),
-            scopes=["inventory:read"],  # Only request read - Okta policy controls what's granted
+            scopes=["inventory:read", "inventory:write", "inventory:alert"],
             description="Stock levels, products, and warehouse",
             color="#10b981",  # Green
         ),
         AGENT_CUSTOMER: AgentConfig(
-            name="ProGear Customer Agent",
+            name="Customer MCP",
+            display_name="Customer Agent",
             agent_type=AGENT_CUSTOMER,
             agent_id=os.getenv("OKTA_AI_AGENT_CUSTOMER_ID", os.getenv("OKTA_AI_AGENT_ID", "")),
             private_key=_parse_private_key(
@@ -113,7 +117,8 @@ def get_agent_config(agent_type: str) -> Optional[AgentConfig]:
             color="#8b5cf6",  # Purple
         ),
         AGENT_PRICING: AgentConfig(
-            name="ProGear Pricing Agent",
+            name="Pricing MCP",
+            display_name="Pricing Agent",
             agent_type=AGENT_PRICING,
             agent_id=os.getenv("OKTA_AI_AGENT_PRICING_ID", os.getenv("OKTA_AI_AGENT_ID", "")),
             private_key=_parse_private_key(
@@ -123,7 +128,7 @@ def get_agent_config(agent_type: str) -> Optional[AgentConfig]:
             auth_server_id=os.getenv("OKTA_PRICING_AUTH_SERVER_ID",
                                     os.getenv("OKTA_MCP_AUTH_SERVER_ID", "")),
             audience=os.getenv("OKTA_PRICING_AUDIENCE", "api://progear-pricing"),
-            scopes=["pricing:read"],  # Only request read - Finance gets full access via Okta policy
+            scopes=["pricing:read", "pricing:margin", "pricing:discount"],
             description="Pricing, margins, and discounts",
             color="#f59e0b",  # Orange
         ),
@@ -162,22 +167,26 @@ def get_configured_agents() -> List[str]:
 # When real agents aren't configured, use these demo values
 DEMO_AGENTS = {
     AGENT_SALES: {
-        "name": "ProGear Sales Agent",
+        "name": "Sales MCP",
+        "display_name": "Sales Agent",
         "scopes": ["sales:read", "sales:quote", "sales:order"],
         "color": "#3b82f6",
     },
     AGENT_INVENTORY: {
-        "name": "ProGear Inventory Agent",
+        "name": "Inventory MCP",
+        "display_name": "Inventory Agent",
         "scopes": ["inventory:read", "inventory:write", "inventory:alert"],
         "color": "#10b981",
     },
     AGENT_CUSTOMER: {
-        "name": "ProGear Customer Agent",
+        "name": "Customer MCP",
+        "display_name": "Customer Agent",
         "scopes": ["customer:read", "customer:lookup", "customer:history"],
         "color": "#8b5cf6",
     },
     AGENT_PRICING: {
-        "name": "ProGear Pricing Agent",
+        "name": "Pricing MCP",
+        "display_name": "Pricing Agent",
         "scopes": ["pricing:read", "pricing:margin", "pricing:discount"],
         "color": "#f59e0b",
     },

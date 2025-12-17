@@ -38,6 +38,7 @@ class WorkflowState(TypedDict):
 
     # Routing decision
     agents_to_invoke: List[str]
+    agent_scopes: Dict[str, List[str]]  # Maps agent_type to required scopes based on intent
 
     # Agent results (with access status)
     agent_results: Dict[str, Dict[str, Any]]
@@ -56,6 +57,79 @@ AGENT_KEYWORDS = {
     AGENT_INVENTORY: ["stock", "inventory", "product", "warehouse", "supply", "available", "in stock"],
     AGENT_CUSTOMER: ["customer", "account", "client", "contact", "tier", "loyalty", "history"],
     AGENT_PRICING: ["price", "discount", "margin", "cost", "profit", "bulk", "wholesale", "retail"],
+}
+
+# Scope definitions for each MCP - maps operation type to required scope
+# This enables intent-based scope detection to demonstrate Okta governance
+SCOPE_DEFINITIONS = {
+    AGENT_INVENTORY: {
+        "read": {
+            "scope": "inventory:read",
+            "keywords": ["what", "show", "list", "check", "available", "in stock", "how many", "do we have", "stock level"],
+            "description": "View inventory levels"
+        },
+        "write": {
+            "scope": "inventory:write",
+            "keywords": ["add", "update", "change", "modify", "increase", "decrease", "set", "put", "remove", "delete", "adjust"],
+            "description": "Modify inventory"
+        },
+        "alert": {
+            "scope": "inventory:alert",
+            "keywords": ["alert", "notify", "reorder", "low stock", "warning"],
+            "description": "Inventory alerts"
+        },
+    },
+    AGENT_PRICING: {
+        "read": {
+            "scope": "pricing:read",
+            "keywords": ["price", "cost", "how much", "what's the price", "pricing"],
+            "description": "View prices"
+        },
+        "margin": {
+            "scope": "pricing:margin",
+            "keywords": ["margin", "profit", "markup", "profitability", "cost breakdown"],
+            "description": "View profit margins"
+        },
+        "discount": {
+            "scope": "pricing:discount",
+            "keywords": ["discount", "bulk pricing", "wholesale", "deal", "special price", "volume"],
+            "description": "View/apply discounts"
+        },
+    },
+    AGENT_CUSTOMER: {
+        "read": {
+            "scope": "customer:read",
+            "keywords": ["who", "customer", "account", "client", "contact"],
+            "description": "View customer info"
+        },
+        "lookup": {
+            "scope": "customer:lookup",
+            "keywords": ["lookup", "find", "search", "look up"],
+            "description": "Search customers"
+        },
+        "history": {
+            "scope": "customer:history",
+            "keywords": ["history", "orders", "purchased", "past", "previous", "transactions"],
+            "description": "View purchase history"
+        },
+    },
+    AGENT_SALES: {
+        "read": {
+            "scope": "sales:read",
+            "keywords": ["orders", "sales", "revenue", "pipeline", "show orders"],
+            "description": "View sales data"
+        },
+        "quote": {
+            "scope": "sales:quote",
+            "keywords": ["quote", "proposal", "estimate", "quotation"],
+            "description": "Create quotes"
+        },
+        "order": {
+            "scope": "sales:order",
+            "keywords": ["create order", "place order", "new order", "fulfill", "submit order"],
+            "description": "Create orders"
+        },
+    },
 }
 
 
@@ -117,68 +191,127 @@ class Orchestrator:
 
     async def _router_node(self, state: WorkflowState) -> WorkflowState:
         """
-        Determine which agents to invoke based on the user's question.
+        Determine which agents to invoke and what scopes are needed.
 
         Uses LLM-powered routing with keyword fallback.
+        CRITICAL: Detects intent to determine specific scopes needed.
         """
         message = state["user_message"]
         state["agent_flow"].append({
             "step": "router",
-            "action": "Analyzing request to determine relevant agents",
+            "action": "Analyzing request to determine relevant agents and required scopes",
             "status": "processing"
         })
 
-        # Use LLM to determine which agents are relevant
+        # Use LLM to determine which agents are relevant AND what operations are needed
         try:
-            routing_prompt = f"""Analyze this user request and determine which AI agents should handle it.
+            routing_prompt = f"""Analyze this user request and determine:
+1. Which AI agents should handle it
+2. What specific operations/scopes are needed for each agent
 
-Available agents:
-1. SALES - For orders, quotes, deals, sales pipeline, revenue
-2. INVENTORY - For stock levels, products, warehouse, supply chain
-3. CUSTOMER - For customer info, accounts, contacts, purchase history, loyalty tiers
-4. PRICING - For prices, discounts, margins, costs, bulk pricing
+Available agents and their scopes:
+1. SALES:
+   - sales:read - View orders, sales data, revenue (read-only queries)
+   - sales:quote - Create quotes/proposals
+   - sales:order - Create/modify orders
+
+2. INVENTORY:
+   - inventory:read - View stock levels, product availability (read-only queries like "what do we have", "check stock")
+   - inventory:write - Add/update/modify inventory (write operations like "add 5000 basketballs", "update stock")
+   - inventory:alert - Manage inventory alerts
+
+3. CUSTOMER:
+   - customer:read - View customer information
+   - customer:lookup - Search/find customers
+   - customer:history - View purchase history
+
+4. PRICING:
+   - pricing:read - View prices (basic price queries)
+   - pricing:margin - View profit margins (margin/profit queries)
+   - pricing:discount - View/apply discounts (bulk/discount queries)
 
 User request: "{message}"
 
-Return a JSON object with the agents to invoke (true/false for each):
-{{"sales": true/false, "inventory": true/false, "customer": true/false, "pricing": true/false}}
+Return a JSON object with agents and their required scopes:
+{{
+  "sales": {{"needed": true/false, "scopes": ["sales:read"]}},
+  "inventory": {{"needed": true/false, "scopes": ["inventory:read"]}},
+  "customer": {{"needed": true/false, "scopes": ["customer:read"]}},
+  "pricing": {{"needed": true/false, "scopes": ["pricing:read"]}}
+}}
 
-Only set true for agents that are directly relevant. For complex requests that need
-multiple data sources (like "Can we fulfill an order"), set multiple to true.
+IMPORTANT: Choose scopes based on the operation type:
+- READ operations (view, show, list, check, what, how many) -> use :read scopes
+- WRITE operations (add, update, modify, change, set, put) -> use :write scopes
+- For margin/profit queries -> use pricing:margin
+- For discount/bulk queries -> use pricing:discount
+
 Return ONLY the JSON object, no other text."""
 
             response = await self.router_llm.ainvoke([HumanMessage(content=routing_prompt)])
             routing_json = json.loads(response.content)
 
             agents = []
-            if routing_json.get("sales"):
-                agents.append(AGENT_SALES)
-            if routing_json.get("inventory"):
-                agents.append(AGENT_INVENTORY)
-            if routing_json.get("customer"):
-                agents.append(AGENT_CUSTOMER)
-            if routing_json.get("pricing"):
-                agents.append(AGENT_PRICING)
+            agent_scopes = {}
 
-            logger.info(f"LLM routing decision: {agents}")
+            for agent_type, config in [
+                (AGENT_SALES, routing_json.get("sales", {})),
+                (AGENT_INVENTORY, routing_json.get("inventory", {})),
+                (AGENT_CUSTOMER, routing_json.get("customer", {})),
+                (AGENT_PRICING, routing_json.get("pricing", {}))
+            ]:
+                if config.get("needed"):
+                    agents.append(agent_type)
+                    agent_scopes[agent_type] = config.get("scopes", [f"{agent_type}:read"])
+
+            logger.info(f"LLM routing decision: agents={agents}, scopes={agent_scopes}")
 
         except Exception as e:
             logger.warning(f"LLM routing failed, using keyword fallback: {e}")
             agents = self._keyword_routing(message)
+            agent_scopes = self._detect_scopes_from_keywords(message, agents)
 
         # Default to at least one agent
         if not agents:
             agents = [AGENT_SALES]
+            agent_scopes = {AGENT_SALES: ["sales:read"]}
 
         state["agents_to_invoke"] = agents
+        state["agent_scopes"] = agent_scopes
+
+        # Build scope summary for display
+        scope_summary = ", ".join([f"{a}: {agent_scopes.get(a, [])}" for a in agents])
         state["agent_flow"].append({
             "step": "router",
             "action": f"Selected agents: {', '.join(agents)}",
             "status": "completed",
-            "agents": agents
+            "agents": agents,
+            "scopes": agent_scopes
         })
 
         return state
+
+    def _detect_scopes_from_keywords(self, message: str, agents: List[str]) -> Dict[str, List[str]]:
+        """Detect required scopes based on keywords in the message."""
+        message_lower = message.lower()
+        agent_scopes = {}
+
+        for agent_type in agents:
+            if agent_type in SCOPE_DEFINITIONS:
+                scopes = []
+                for op_type, op_config in SCOPE_DEFINITIONS[agent_type].items():
+                    if any(kw in message_lower for kw in op_config["keywords"]):
+                        scopes.append(op_config["scope"])
+
+                # Default to read scope if no specific scope detected
+                if not scopes:
+                    scopes = [f"{agent_type}:read"]
+
+                agent_scopes[agent_type] = scopes
+            else:
+                agent_scopes[agent_type] = [f"{agent_type}:read"]
+
+        return agent_scopes
 
     def _keyword_routing(self, message: str) -> List[str]:
         """Fallback keyword-based routing."""
@@ -193,42 +326,44 @@ Return ONLY the JSON object, no other text."""
 
     async def _exchange_tokens_node(self, state: WorkflowState) -> WorkflowState:
         """
-        Exchange tokens for all selected agents.
+        Exchange tokens for all selected agents with the detected scopes.
 
         This is where access control happens - users may be denied
-        access to certain agents based on group membership.
+        access to certain scopes based on group membership.
         """
         agents_to_invoke = state["agents_to_invoke"]
+        agent_scopes = state.get("agent_scopes", {})
 
         state["agent_flow"].append({
             "step": "token_exchange",
-            "action": "Requesting access tokens for selected agents",
+            "action": "Requesting access tokens with required scopes",
             "status": "processing"
         })
 
-        # Exchange tokens for all selected agents
+        # Exchange tokens for all selected agents with their specific scopes
         exchange_results = await self.token_exchange.exchange_for_all_agents(
             self.user_token,
-            agents_to_invoke
+            agents_to_invoke,
+            agent_scopes  # Pass the intent-based scopes
         )
 
-        # Record token exchanges
+        # Record token exchanges - use "name" for Token Exchange card (MCP name)
         for agent_type, result in exchange_results.items():
-            config = get_agent_config(agent_type) or {}
-            demo_config = DEMO_AGENTS.get(agent_type, {})
+            requested_scopes = result.get("requested_scopes", agent_scopes.get(agent_type, []))
 
             exchange_record = {
                 "agent": agent_type,
-                "agent_name": result["agent_info"]["name"],
+                "agent_name": result["agent_info"]["name"],  # MCP name for Token Exchange card
                 "color": result["agent_info"]["color"],
                 "success": result["success"],
                 "access_denied": result.get("access_denied", False),
                 "scopes": result.get("scopes", []),
+                "requested_scopes": requested_scopes,  # What was requested
                 "demo_mode": result.get("demo_mode", False),
             }
 
             if result.get("access_denied"):
-                exchange_record["error"] = result.get("error", "Access denied")
+                exchange_record["error"] = result.get("error", f"Access denied for scope(s): {', '.join(requested_scopes)}")
                 exchange_record["status"] = "denied"
             elif result["success"]:
                 exchange_record["status"] = "granted"
@@ -243,7 +378,7 @@ Return ONLY the JSON object, no other text."""
         state["agent_results"] = exchange_results
 
         # Summary for flow
-        granted = sum(1 for r in exchange_results.values() if r["success"])
+        granted = sum(1 for r in exchange_results.values() if r["success"] and not r.get("access_denied"))
         denied = sum(1 for r in exchange_results.values() if r.get("access_denied"))
 
         state["agent_flow"].append({
@@ -269,13 +404,17 @@ Return ONLY the JSON object, no other text."""
 
         state["agent_flow"].append({
             "step": "process_agents",
-            "action": "Processing request through authorized agents",
+            "action": "Running authorized agents",
             "status": "processing"
         })
 
         # For each agent with access, simulate processing
         # In a full implementation, this would call MCP tools
         for agent_type, exchange_result in agent_results.items():
+            # Use display_name for Agent Flow card
+            display_name = exchange_result["agent_info"].get("display_name", exchange_result["agent_info"]["name"])
+            requested_scopes = exchange_result.get("requested_scopes", [])
+
             if exchange_result["success"] and not exchange_result.get("access_denied"):
                 # Agent has access - process the request
                 agent_response = await self._invoke_agent(
@@ -287,16 +426,20 @@ Return ONLY the JSON object, no other text."""
 
                 state["agent_flow"].append({
                     "step": f"{agent_type}_agent",
-                    "action": f"Processed by {exchange_result['agent_info']['name']}",
+                    "action": f"{display_name}",
+                    "detail": f"Via {exchange_result['agent_info']['name']}",
                     "status": "completed",
-                    "color": exchange_result["agent_info"]["color"]
+                    "color": exchange_result["agent_info"]["color"],
+                    "scopes": exchange_result.get("scopes", [])
                 })
             elif exchange_result.get("access_denied"):
                 state["agent_flow"].append({
                     "step": f"{agent_type}_agent",
-                    "action": f"ACCESS DENIED - User not authorized for {exchange_result['agent_info']['name']}",
+                    "action": f"{display_name}",
+                    "detail": f"DENIED: {', '.join(requested_scopes)}",
                     "status": "denied",
-                    "color": exchange_result["agent_info"]["color"]
+                    "color": exchange_result["agent_info"]["color"],
+                    "requested_scopes": requested_scopes
                 })
 
         state["agent_results"] = agent_results
@@ -511,6 +654,7 @@ If some agents were denied, acknowledge what information is missing but focus on
             "user_info": self.user_info,
             "user_token": self.user_token,
             "agents_to_invoke": [],
+            "agent_scopes": {},  # Will be populated by router based on intent
             "agent_results": {},
             "agent_flow": [],
             "token_exchanges": [],
