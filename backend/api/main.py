@@ -11,7 +11,9 @@ Features:
 
 import os
 import logging
-from fastapi import FastAPI, HTTPException, Header
+import httpx
+from datetime import datetime, timedelta
+from fastapi import FastAPI, HTTPException, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -293,6 +295,135 @@ async def agent_config():
             },
         ]
     }
+
+
+# --- Okta System Logs Endpoint (for governance demo) ---
+
+@app.get("/api/okta/logs")
+async def okta_system_logs(
+    minutes: int = Query(default=10, description="Look back this many minutes"),
+    limit: int = Query(default=20, description="Max number of logs to return")
+):
+    """
+    Fetch recent Okta system logs for token exchange events.
+    Shows both the AI agent (actor) and the user (on behalf of).
+
+    This demonstrates Okta's governance in action.
+    """
+    okta_domain = os.getenv("OKTA_DOMAIN", "").strip()
+    if okta_domain and not okta_domain.startswith("http"):
+        okta_domain = f"https://{okta_domain}"
+
+    okta_api_token = os.getenv("OKTA_API_TOKEN", "").strip()
+
+    if not okta_domain or not okta_api_token:
+        return {
+            "logs": [],
+            "error": "Okta API not configured",
+            "demo_mode": True
+        }
+
+    # Calculate time range
+    since = (datetime.utcnow() - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Fetch token exchange related events
+            response = await client.get(
+                f"{okta_domain}/api/v1/logs",
+                params={
+                    "since": since,
+                    "limit": limit,
+                    "q": "token"  # Search for token-related events
+                },
+                headers={
+                    "Authorization": f"SSWS {okta_api_token}",
+                    "Accept": "application/json"
+                },
+                timeout=10.0
+            )
+
+            if response.status_code != 200:
+                logger.error(f"Okta API error: {response.status_code} - {response.text}")
+                return {
+                    "logs": [],
+                    "error": f"Okta API error: {response.status_code}"
+                }
+
+            raw_logs = response.json()
+
+            # Filter and format relevant logs
+            formatted_logs = []
+            for log in raw_logs:
+                event_type = log.get("eventType", "")
+
+                # Focus on token grant events (both success and failure)
+                if "token.grant" in event_type or "token_exchange" in event_type:
+                    outcome = log.get("outcome", {})
+                    actor = log.get("actor", {})
+                    targets = log.get("target", [])
+                    debug_data = log.get("debugContext", {}).get("debugData", {})
+
+                    # Extract user from targets (the "on behalf of" user)
+                    user_info = None
+                    id_jag_info = None
+                    for target in targets:
+                        if target.get("type") == "User":
+                            user_info = {
+                                "id": target.get("id"),
+                                "email": target.get("alternateId"),
+                                "name": target.get("displayName")
+                            }
+                        elif target.get("type") == "id_jag":
+                            id_jag_info = target.get("detailEntry", {})
+
+                    formatted_log = {
+                        "timestamp": log.get("published"),
+                        "event_type": event_type,
+                        "display_message": log.get("displayMessage"),
+                        "outcome": {
+                            "result": outcome.get("result"),
+                            "reason": outcome.get("reason")
+                        },
+                        "actor": {
+                            "id": actor.get("id"),
+                            "type": actor.get("type"),
+                            "name": actor.get("displayName"),
+                            "alternate_id": actor.get("alternateId")
+                        },
+                        "user_on_behalf_of": user_info,
+                        "id_jag": id_jag_info,
+                        "details": {
+                            "auth_server": debug_data.get("authorizationServerName"),
+                            "requested_scopes": debug_data.get("requestedScopes"),
+                            "granted_scopes": debug_data.get("grantedScopes"),
+                            "grant_type": debug_data.get("grantType")
+                        },
+                        "severity": log.get("severity")
+                    }
+                    formatted_logs.append(formatted_log)
+
+            return {
+                "logs": formatted_logs,
+                "count": len(formatted_logs),
+                "time_range": {
+                    "since": since,
+                    "minutes": minutes
+                }
+            }
+
+    except httpx.TimeoutException:
+        logger.error("Okta API timeout")
+        return {
+            "logs": [],
+            "error": "Okta API timeout"
+        }
+    except Exception as e:
+        logger.error(f"Error fetching Okta logs: {e}")
+        return {
+            "logs": [],
+            "error": str(e)
+        }
 
 
 if __name__ == "__main__":

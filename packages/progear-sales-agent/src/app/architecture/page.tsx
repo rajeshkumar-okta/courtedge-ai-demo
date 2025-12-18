@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, Shield, Key, Users, Server, ArrowRight, CheckCircle, XCircle, Cpu, Lock, GitBranch, Database, Activity, Bot } from 'lucide-react';
+import OktaSystemLog from '@/components/OktaSystemLog';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -355,71 +356,11 @@ export default function ArchitecturePage() {
         {/* Audit Trail */}
         <CollapsibleSection
           title="Audit Trail (Okta Syslog)"
-          subtitle="Real token exchange events from system logs"
+          subtitle="Live token exchange events from Okta"
           icon={<Activity className="w-5 h-5" />}
           defaultOpen={true}
         >
-          <div className="mt-4">
-            <div className="bg-gray-900 rounded-xl p-5 text-sm font-mono overflow-x-auto">
-              <div className="text-gray-400 mb-4">// Recent ID-JAG Token Exchange Events for Sarah Sales</div>
-
-              {/* Event 1: ID-JAG Exchange */}
-              <div className="mb-6 p-4 bg-gray-800/50 rounded-lg border-l-4 border-purple-500">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-purple-400 font-semibold">Step 1: ID-JAG Token Exchange</span>
-                  <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">SUCCESS</span>
-                </div>
-                <div className="space-y-1 text-xs">
-                  <div><span className="text-gray-500">eventType:</span> <span className="text-yellow-300">"app.oauth2.token.grant.id_jag"</span></div>
-                  <div><span className="text-gray-500">published:</span> <span className="text-gray-300">"2025-12-17T01:53:35.577Z"</span></div>
-                  <div><span className="text-gray-500">actor:</span> <span className="text-blue-300">"ProGear Sales Agent"</span> <span className="text-gray-500">(wlp8x5q7mvH86KvFJ0g7)</span></div>
-                  <div><span className="text-gray-500">user:</span> <span className="text-green-300">"sarah.sales@progear.demo"</span> <span className="text-gray-500">(Sarah Sales)</span></div>
-                  <div><span className="text-gray-500">grantedScopes:</span> <span className="text-orange-300">"inventory:read"</span></div>
-                  <div><span className="text-gray-500">tokenExchangeType:</span> <span className="text-cyan-300">"Agent ID Assertion"</span></div>
-                  <div><span className="text-gray-500">clientAuthType:</span> <span className="text-gray-300">"private_key_jwt"</span></div>
-                </div>
-              </div>
-
-              {/* Event 2: Access Token Grant */}
-              <div className="p-4 bg-gray-800/50 rounded-lg border-l-4 border-green-500">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-green-400 font-semibold">Step 2: MCP Access Token Grant</span>
-                  <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">SUCCESS</span>
-                </div>
-                <div className="space-y-1 text-xs">
-                  <div><span className="text-gray-500">eventType:</span> <span className="text-yellow-300">"app.oauth2.as.token.grant.access_token"</span></div>
-                  <div><span className="text-gray-500">published:</span> <span className="text-gray-300">"2025-12-17T01:53:35.986Z"</span></div>
-                  <div><span className="text-gray-500">authServer:</span> <span className="text-blue-300">"ProGear Inventory MCP"</span> <span className="text-gray-500">(aus8xdg1oaSVfDgxa0g7)</span></div>
-                  <div><span className="text-gray-500">user:</span> <span className="text-green-300">"sarah.sales@progear.demo"</span></div>
-                  <div><span className="text-gray-500">grantedScopes:</span> <span className="text-orange-300">"inventory:read"</span></div>
-                  <div><span className="text-gray-500">grantType:</span> <span className="text-cyan-300">"urn:ietf:params:oauth:grant-type:jwt-bearer"</span></div>
-                  <div><span className="text-gray-500">tokenExpires:</span> <span className="text-gray-300">"2025-12-17T02:53:35.000Z"</span> <span className="text-gray-500">(60 min)</span></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Audit Value Proposition */}
-            <div className="mt-4 grid md:grid-cols-3 gap-4">
-              <div className="p-4 bg-purple-50 rounded-lg border-l-4 border-purple-500">
-                <div className="font-semibold text-purple-800">Complete Visibility</div>
-                <div className="text-sm text-purple-700 mt-1">
-                  Every token exchange is logged with user, agent, scopes, and timestamp.
-                </div>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-500">
-                <div className="font-semibold text-green-800">Compliance Ready</div>
-                <div className="text-sm text-green-700 mt-1">
-                  Full audit trail for SOC2, HIPAA, and regulatory compliance.
-                </div>
-              </div>
-              <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                <div className="font-semibold text-blue-800">Incident Response</div>
-                <div className="text-sm text-blue-700 mt-1">
-                  Quickly investigate who accessed what data through which agent.
-                </div>
-              </div>
-            </div>
-          </div>
+          <OktaSystemLog />
         </CollapsibleSection>
 
         {/* Token Flow */}

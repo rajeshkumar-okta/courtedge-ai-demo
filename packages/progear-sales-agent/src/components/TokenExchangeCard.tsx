@@ -137,8 +137,16 @@ export default function TokenExchangeCard({ exchanges }: Props) {
                 </div>
               )}
 
-              {/* Error message */}
-              {exchange.error && (
+              {/* Policy blocked message - subtle for access_denied */}
+              {exchange.access_denied && (
+                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-gray-500">
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Blocked by Okta governance policy</span>
+                </div>
+              )}
+
+              {/* Error message - only for actual errors, not access_denied */}
+              {exchange.error && !exchange.access_denied && (
                 <div className="mt-2 text-xs text-error-red bg-error-red/10 px-2 py-1 rounded">
                   {exchange.error}
                 </div>
