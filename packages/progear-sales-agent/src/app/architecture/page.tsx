@@ -96,13 +96,13 @@ export default function ArchitecturePage() {
                   <span className="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-white text-[10px]">1</span>
                   USER AUTHENTICATED
                 </div>
-                <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-5 py-3 rounded-xl shadow-lg">
+                <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-5 py-4 rounded-xl shadow-lg">
                   <div className="flex items-center gap-3">
-                    <Users className="w-6 h-6" />
+                    <Users className="w-7 h-7" />
                     <div>
-                      <div className="font-semibold">{userName}</div>
-                      <div className="text-xs text-purple-200">Logged in via Okta OIDC • Has ID Token</div>
-                      <div className="text-xs font-mono text-purple-300 mt-1">sub: {userSub}</div>
+                      <div className="font-semibold text-lg">{userName}</div>
+                      <div className="text-sm text-purple-200">Logged in via Okta OIDC • Has ID Token</div>
+                      <div className="text-sm font-mono text-purple-300 mt-1">sub: {userSub}</div>
                     </div>
                   </div>
                 </div>
@@ -132,27 +132,36 @@ export default function ArchitecturePage() {
                 <div className="flex items-center gap-2 text-xs text-purple-700 font-semibold mb-2">
                   <span className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center text-white text-[10px]">3</span>
                   LANGCHAIN ORCHESTRATOR
+                  <span className="text-[10px] text-gray-400 font-normal ml-2">(routing only — no security boundary)</span>
                 </div>
-                <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-5 py-4 rounded-xl shadow-lg">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Cpu className="w-6 h-6" />
-                    <div>
-                      <div className="font-semibold">Analyzes Request & Determines Required MCPs</div>
+                <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-5 py-4 rounded-xl shadow-lg relative overflow-hidden">
+                  {/* Animated scanning line */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse" style={{ animationDuration: '2s' }} />
+                  <div className="relative">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="relative">
+                        <Cpu className="w-6 h-6" />
+                        <div className="absolute -inset-1 bg-white/20 rounded-full animate-ping" style={{ animationDuration: '2s' }} />
+                      </div>
+                      <div>
+                        <div className="font-semibold">Analyzes Request & Determines Required MCPs</div>
+                        <div className="text-xs text-purple-300 mt-0.5">LangChain decides what's needed → Okta decides what's allowed</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-2 py-1 bg-white/20 rounded text-xs font-medium flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-green-300" /> Inventory
-                    </span>
-                    <span className="px-2 py-1 bg-white/20 rounded text-xs font-medium flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-green-300" /> Customer
-                    </span>
-                    <span className="px-2 py-1 bg-white/20 rounded text-xs font-medium flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-green-300" /> Pricing
-                    </span>
-                    <span className="px-2 py-1 bg-white/20 rounded text-xs font-medium flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-green-300" /> Sales
-                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-3 py-1.5 bg-green-500/30 border border-green-400/50 rounded text-sm font-medium flex items-center gap-1.5 animate-pulse" style={{ animationDuration: '1.5s', animationDelay: '0s' }}>
+                        <CheckCircle className="w-4 h-4 text-green-300" /> Inventory
+                      </span>
+                      <span className="px-3 py-1.5 bg-purple-500/30 border border-purple-400/50 rounded text-sm font-medium flex items-center gap-1.5 animate-pulse" style={{ animationDuration: '1.5s', animationDelay: '0.2s' }}>
+                        <CheckCircle className="w-4 h-4 text-purple-300" /> Customer
+                      </span>
+                      <span className="px-3 py-1.5 bg-orange-500/30 border border-orange-400/50 rounded text-sm font-medium flex items-center gap-1.5 animate-pulse" style={{ animationDuration: '1.5s', animationDelay: '0.4s' }}>
+                        <CheckCircle className="w-4 h-4 text-orange-300" /> Pricing
+                      </span>
+                      <span className="px-3 py-1.5 bg-blue-500/30 border border-blue-400/50 rounded text-sm font-medium flex items-center gap-1.5 animate-pulse" style={{ animationDuration: '1.5s', animationDelay: '0.6s' }}>
+                        <CheckCircle className="w-4 h-4 text-blue-300" /> Sales
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -161,64 +170,52 @@ export default function ArchitecturePage() {
                 <ArrowRight className="w-5 h-5 text-gray-400 rotate-90" />
               </div>
 
-              {/* Step 4: ProGear Sales Agent + ID-JAG Exchange */}
+              {/* Step 4: ProGear Sales Agent + ID-JAG Exchange (Okta Governance) */}
               <div className="mb-4">
                 <div className="flex items-center gap-2 text-xs text-okta-blue font-semibold mb-2">
                   <span className="w-5 h-5 rounded-full bg-okta-blue flex items-center justify-center text-white text-[10px]">4</span>
                   PROGEAR SALES AGENT — ID-JAG TOKEN EXCHANGE
+                  <Shield className="w-4 h-4 text-okta-blue ml-1" />
+                  <span className="text-[10px] text-okta-blue font-normal">Okta Governance</span>
                 </div>
-                <div className="bg-gradient-to-r from-okta-blue to-blue-700 text-white rounded-xl shadow-lg overflow-hidden">
+                <div className="bg-gradient-to-r from-okta-blue to-blue-700 text-white rounded-xl shadow-lg overflow-hidden border-2 border-okta-blue/50">
                   {/* Agent Header */}
                   <div className="px-5 py-3 border-b border-white/20">
                     <div className="flex items-center gap-3">
-                      <Bot className="w-6 h-6" />
+                      <Bot className="w-7 h-7" />
                       <div>
-                        <div className="font-semibold">ProGear Sales Agent</div>
-                        <div className="text-xs text-blue-200">Okta AI Agent • wlp8x5q7mvH86KvFJ0g7</div>
+                        <div className="font-semibold text-lg">ProGear Sales Agent</div>
+                        <div className="text-sm text-blue-200">Okta AI Agent • wlp8x5q7mvH86KvFJ0g7</div>
                       </div>
                     </div>
                   </div>
 
                   {/* Exchange Process */}
-                  <div className="px-5 py-3 bg-black/10">
-                    <div className="text-xs text-blue-200 mb-2">For each MCP selected by LangChain:</div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="px-2 py-1 bg-white/20 rounded text-xs">User ID Token</span>
-                      <ArrowRight className="w-4 h-4 text-blue-300" />
-                      <span className="px-2 py-1 bg-purple-500/50 rounded text-xs font-mono">ID-JAG</span>
-                      <ArrowRight className="w-4 h-4 text-blue-300" />
-                      <span className="px-2 py-1 bg-green-500/50 rounded text-xs font-mono">MCP Token</span>
-                    </div>
-                  </div>
-
-                  {/* MCP Tokens Obtained */}
-                  <div className="px-5 py-3 bg-black/5">
-                    <div className="text-xs text-blue-200 mb-2">Tokens obtained:</div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {[
-                        { name: "Inventory", color: "#10b981", scope: "read" },
-                        { name: "Customer", color: "#8b5cf6", scope: "read" },
-                        { name: "Pricing", color: "#f59e0b", scope: "discount" },
-                        { name: "Sales", color: "#3b82f6", scope: "quote" },
-                      ].map((mcp, idx) => (
-                        <div key={idx} className="flex items-center gap-1.5 px-2 py-1 bg-white/10 rounded text-xs">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: mcp.color }} />
-                          <span>{mcp.name}</span>
-                          <CheckCircle className="w-3 h-3 text-green-400 ml-auto" />
-                        </div>
-                      ))}
+                  <div className="px-5 py-4 bg-black/10">
+                    <div className="text-sm text-blue-200 mb-3">For each MCP selected by LangChain, Okta evaluates access:</div>
+                    <div className="flex items-center gap-3 text-base flex-wrap">
+                      <span className="px-3 py-1.5 bg-white/20 rounded text-sm font-medium">User ID Token</span>
+                      <ArrowRight className="w-5 h-5 text-blue-300" />
+                      <span className="px-3 py-1.5 bg-purple-500/50 rounded text-sm font-mono font-medium">ID-JAG</span>
+                      <ArrowRight className="w-5 h-5 text-blue-300" />
+                      <span className="px-3 py-1.5 bg-green-500/50 rounded text-sm font-mono font-medium flex items-center gap-1">
+                        <Shield className="w-4 h-4" /> MCP Token
+                      </span>
                     </div>
                   </div>
 
                   {/* Token Contents - Live Data */}
-                  <div className="bg-gray-900 p-4 font-mono text-sm space-y-1">
-                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-3">Example: Inventory MCP Token</div>
-                    <div><span className="text-gray-500">sub:</span>       <span className="text-purple-400">{userSub}</span> <span className="text-gray-500 text-xs italic ml-2">← {userName}</span></div>
-                    <div><span className="text-gray-500">actor.sub:</span> <span className="text-blue-400">wlp8x5q7mvH86KvFJ0g7</span> <span className="text-gray-500 text-xs italic ml-2">← AI Agent identity</span></div>
-                    <div><span className="text-gray-500">aud:</span>       <span className="text-cyan-400">api://progear-inventory</span> <span className="text-gray-500 text-xs italic ml-2">← Target MCP</span></div>
-                    <div><span className="text-gray-500">scope:</span>     <span className="text-green-400">inventory:read</span> <span className="text-gray-500 text-xs italic ml-2">← Granted by policy</span></div>
-                    <div><span className="text-gray-500">iat:</span>       <span className="text-gray-400">{Math.floor(Date.now() / 1000)}</span> <span className="text-gray-500 text-xs italic ml-2">← Issued at</span></div>
-                    <div><span className="text-gray-500">exp:</span>       <span className="text-gray-400">{Math.floor(Date.now() / 1000) + 3600}</span> <span className="text-gray-500 text-xs italic ml-2">← Expires in 1hr</span></div>
+                  <div className="bg-gray-900 p-5 font-mono space-y-2">
+                    <div className="text-sm text-gray-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-green-400" />
+                      Example: Inventory MCP Token (Granted)
+                    </div>
+                    <div className="text-base"><span className="text-gray-500">sub:</span>       <span className="text-purple-400 font-semibold">{userSub}</span> <span className="text-gray-400 text-sm italic ml-3">← {userName}</span></div>
+                    <div className="text-base"><span className="text-gray-500">actor.sub:</span> <span className="text-blue-400 font-semibold">wlp8x5q7mvH86KvFJ0g7</span> <span className="text-gray-400 text-sm italic ml-3">← AI Agent identity</span></div>
+                    <div className="text-base"><span className="text-gray-500">aud:</span>       <span className="text-cyan-400 font-semibold">api://progear-inventory</span> <span className="text-gray-400 text-sm italic ml-3">← Target MCP</span></div>
+                    <div className="text-base"><span className="text-gray-500">scope:</span>     <span className="text-green-400 font-semibold">inventory:read</span> <span className="text-gray-400 text-sm italic ml-3">← Granted by Okta policy</span></div>
+                    <div className="text-base"><span className="text-gray-500">iat:</span>       <span className="text-gray-300">{Math.floor(Date.now() / 1000)}</span> <span className="text-gray-400 text-sm italic ml-3">← Issued at</span></div>
+                    <div className="text-base"><span className="text-gray-500">exp:</span>       <span className="text-gray-300">{Math.floor(Date.now() / 1000) + 3600}</span> <span className="text-gray-400 text-sm italic ml-3">← Expires in 1hr</span></div>
                   </div>
                 </div>
               </div>
@@ -227,27 +224,115 @@ export default function ArchitecturePage() {
                 <ArrowRight className="w-5 h-5 text-gray-400 rotate-90" />
               </div>
 
-              {/* Step 5: MCP Servers Called */}
+              {/* Step 5: Agent Authorizes with MCPs using Tokens */}
               <div>
                 <div className="flex items-center gap-2 text-xs text-green-600 font-semibold mb-2">
                   <span className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white text-[10px]">5</span>
-                  MCP SERVERS CALLED & RESPONSE AGGREGATED
+                  AGENT CALLS MCPS WITH GRANTED TOKENS
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    { name: "Inventory", color: "from-green-500 to-green-600", task: "Check stock: 1500" },
-                    { name: "Customer", color: "from-purple-500 to-purple-600", task: "Lookup: State Univ" },
-                    { name: "Pricing", color: "from-orange-500 to-orange-600", task: "Calc bulk discount" },
-                    { name: "Sales", color: "from-blue-500 to-blue-600", task: "Generate quote" },
-                  ].map((server, idx) => (
-                    <div key={idx} className={`bg-gradient-to-br ${server.color} text-white p-3 rounded-xl text-center shadow-lg`}>
-                      <Server className="w-5 h-5 mx-auto mb-1" />
-                      <div className="font-semibold text-sm">{server.name}</div>
-                      <div className="text-[10px] text-white/80 mt-1">{server.task}</div>
+                <div className="bg-white rounded-xl border-2 border-green-200 shadow-sm overflow-hidden">
+                  {/* Show one detailed example of the authorization flow */}
+                  <div className="p-4 border-b border-gray-100">
+                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-3">Example: Inventory MCP Call</div>
+
+                    {/* Request */}
+                    <div className="bg-gray-900 rounded-lg p-3 font-mono text-sm mb-3">
+                      <div className="text-gray-400 text-xs mb-2">→ Request to MCP</div>
+                      <div className="text-green-400">GET /api/inventory/stock?product=basketball&qty=1500</div>
+                      <div className="text-blue-300 mt-1">Authorization: Bearer <span className="text-yellow-300">eyJhbGciOiJSUzI1...</span></div>
+                      <div className="text-gray-500 text-xs mt-2 italic">↑ MCP token from Step 4 (contains sub, actor.sub, scope)</div>
                     </div>
-                  ))}
+
+                    {/* MCP Validation */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex-1 border-t border-dashed border-gray-300"></div>
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 rounded-full text-xs text-green-700 font-medium">
+                        <Shield className="w-3.5 h-3.5" />
+                        MCP Validates Token
+                      </div>
+                      <div className="flex-1 border-t border-dashed border-gray-300"></div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                        <span className="text-gray-600">Signature valid (Okta-signed)</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                        <span className="text-gray-600">aud = api://progear-inventory</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                        <span className="text-gray-600">scope includes inventory:read</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                        <span className="text-gray-600">Token not expired</span>
+                      </div>
+                    </div>
+
+                    {/* Response */}
+                    <div className="bg-gray-900 rounded-lg p-3 font-mono text-sm">
+                      <div className="text-gray-400 text-xs mb-2">← Response from MCP</div>
+                      <div className="text-green-400">200 OK</div>
+                      <div className="text-gray-300 mt-1">{'{'} "available": 2340, "canFulfill": true {'}'}</div>
+                    </div>
+                  </div>
+
+                  {/* All MCP Calls Summary */}
+                  <div className="p-4 bg-gray-50">
+                    <div className="text-xs text-gray-500 uppercase tracking-wide mb-3">All MCP Calls for This Query</div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-green-200">
+                        <div className="w-7 h-7 rounded bg-green-500 flex items-center justify-center">
+                          <Server className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-800">Inventory MCP</div>
+                          <div className="text-xs text-gray-500 font-mono truncate">inventory:read → Check stock</div>
+                        </div>
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      </div>
+                      <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-purple-200">
+                        <div className="w-7 h-7 rounded bg-purple-500 flex items-center justify-center">
+                          <Server className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-800">Customer MCP</div>
+                          <div className="text-xs text-gray-500 font-mono truncate">customer:lookup → State University</div>
+                        </div>
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      </div>
+                      <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-orange-200">
+                        <div className="w-7 h-7 rounded bg-orange-500 flex items-center justify-center">
+                          <Server className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-800">Pricing MCP</div>
+                          <div className="text-xs text-gray-500 font-mono truncate">pricing:discount → Bulk discount</div>
+                        </div>
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      </div>
+                      <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-blue-200">
+                        <div className="w-7 h-7 rounded bg-blue-500 flex items-center justify-center">
+                          <Server className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-800">Sales MCP</div>
+                          <div className="text-xs text-gray-500 font-mono truncate">sales:quote → Generate quote</div>
+                        </div>
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-4 py-3 bg-green-50 border-t border-green-100 text-center">
+                    <span className="text-sm text-green-700 font-medium">✓ All responses aggregated and returned to user</span>
+                  </div>
                 </div>
               </div>
+
             </div>
 
           </div>
