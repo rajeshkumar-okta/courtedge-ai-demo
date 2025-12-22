@@ -38,40 +38,49 @@ This demo implements **Scenario 2** from our [four scenarios framework](docs/okt
 - **Frontend**: [progear-sales-agent.vercel.app](https://progear-sales-agent.vercel.app)
 - **Backend API**: [courtedge-progear-backend.onrender.com](https://courtedge-progear-backend.onrender.com)
 
+### 📚 Documentation
+
+| | |
+|---|---|
+| **[Security & Governance Guide](docs/okta-security-value.md)** | Understand the four scenarios, XAA/ID-JAG concepts, and why this matters |
+| **[Implementation Guide](docs/implementation-guide.md)** | Deploy your own instance with step-by-step Okta configuration |
+
+---
+
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         User Browser                             │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  ProGear Sales Agent (Next.js 14 + React)                 │  │
-│  │  - Chat interface with AI agent                           │  │
-│  │  - Real-time token exchange visualization                 │  │
-│  │  - Agent flow tracking                                    │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ HTTPS
-                             ▼
-┌────────────────────────────────────────────────────────────────┐
-│          FastAPI Backend (LangGraph Orchestrator)               │
-│  ┌────────────────────────────────────────────────────────┐    │
-│  │  Multi-Agent Workflow (LangGraph)                      │    │
-│  │                                                        │    │
-│  │  router → exchange_tokens → process_agents → response  │    │
-│  │                                                        │    │
-│  │  - Intent-based scope detection                        │    │
-│  │  - ID-JAG token exchange per MCP                       │    │
-│  │  - Graceful access denial handling                     │    │
-│  └────────────────────────────────────────────────────────┘    │
-└────────────────┬───────────────────────────────────────────────┘
-                 │
-    ┌────────────┼────────────┬────────────┬────────────┐
-    │            │            │            │            │
-    ▼            ▼            ▼            ▼            ▼
-┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌──────────┐
-│ Sales  │  │Inventory│  │Customer│  │Pricing │  │  Okta    │
-│  MCP   │  │  MCP   │  │  MCP   │  │  MCP   │  │  IdP     │
-└────────┘  └────────┘  └────────┘  └────────┘  └──────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                         User Browser                          │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │  ProGear Sales Agent (Next.js 14 + React)               │  │
+│  │  - Chat interface with AI agent                         │  │
+│  │  - Real-time token exchange visualization               │  │
+│  │  - Agent flow tracking                                  │  │
+│  └─────────────────────────────────────────────────────────┘  │
+└───────────────────────────────┬───────────────────────────────┘
+                                │ HTTPS
+                                ▼
+┌───────────────────────────────────────────────────────────────┐
+│            FastAPI Backend (LangGraph Orchestrator)           │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │  Multi-Agent Workflow (LangGraph)                       │  │
+│  │                                                         │  │
+│  │  router → exchange_tokens → process_agents → response   │  │
+│  │                                                         │  │
+│  │  - Intent-based scope detection                         │  │
+│  │  - ID-JAG token exchange per MCP                        │  │
+│  │  - Graceful access denial handling                      │  │
+│  └─────────────────────────────────────────────────────────┘  │
+└───────────────────────────────┬───────────────────────────────┘
+                                │
+      ┌───────────┬─────────────┼─────────────┬───────────┐
+      │           │             │             │           │
+      ▼           ▼             ▼             ▼           ▼
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+│  Sales   │ │ Inventory│ │ Customer │ │ Pricing  │ │   Okta   │
+│   MCP    │ │   MCP    │ │   MCP    │ │   MCP    │ │   IdP    │
+└──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
 ```
 
 ## Key Components
@@ -126,51 +135,22 @@ Three user groups with different access levels:
 5. Generate unified response
 ```
 
-## Quick Start
+## Deploy Your Own
 
-### Prerequisites
-- Node.js 18+
-- Python 3.9+
-- Okta account with AI Agent feature enabled
-- Anthropic API key
+Want to deploy this demo with your own Okta org? Follow the **[Implementation Guide](docs/implementation-guide.md)** for complete instructions on:
 
-### Local Development
-
-```bash
-# Clone repository
-git clone https://github.com/your-org/courtedge-ai-demo.git
-cd courtedge-ai-demo
-
-# Copy environment template
-cp .env.example .env
-# Edit .env with your credentials
-
-# Install frontend dependencies
-cd packages/progear-sales-agent
-npm install
-
-# Install backend dependencies
-cd ../../backend
-pip install -r requirements.txt
-
-# Start backend (terminal 1)
-cd backend
-uvicorn api.main:app --reload --port 8000
-
-# Start frontend (terminal 2)
-cd packages/progear-sales-agent
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000)
+1. Configuring Okta (AI Agent, Authorization Servers, Users, Groups)
+2. Deploying the frontend to **Vercel**
+3. Deploying the backend to **Render**
+4. Connecting everything together
 
 ## Documentation
 
-| Document | Purpose |
-|----------|---------|
-| **[Okta Security Value](docs/okta-security-value.md)** | For CISOs and security teams - explains the four scenarios, why XAA matters, MCP adoption, and governance capabilities |
-| **[Implementation Guide](docs/implementation-guide.md)** | Step-by-step deployment guide for Vercel + Render with complete Okta configuration |
-| **[Architecture Page](https://progear-sales-agent.vercel.app/architecture)** | Interactive visualization of the token exchange flow |
+| Document | Audience | Description |
+|----------|----------|-------------|
+| **[Security & Governance Guide](docs/okta-security-value.md)** | Security teams, architects | The four scenarios framework, XAA/ID-JAG concepts, MCP adoption, governance model |
+| **[Implementation Guide](docs/implementation-guide.md)** | Developers, DevOps | Complete deployment walkthrough for Vercel + Render with Okta configuration |
+| **[Live Architecture Page](https://progear-sales-agent.vercel.app/architecture)** | Everyone | Interactive visualization of the token exchange flow in the running demo |
 
 ## Technology Stack
 
