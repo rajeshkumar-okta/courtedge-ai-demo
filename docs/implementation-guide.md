@@ -396,13 +396,6 @@ This application handles user login and is linked to your AI Agent.
    - [x] **Authorization Code** (usually checked by default)
    - [x] **Refresh Token** (usually checked by default)
 
-   > **Finding Token Exchange:** This is critical but often hidden!
-   > - Look for an **"Advanced"** section or link - click to expand it
-   > - Or scroll down to find **"Token Exchange"** checkbox
-   > - If you can't find it, save the app first, then go to **General** → **Edit** and look under **Grant type** section
-
-   - [x] **Token Exchange** ← REQUIRED for ID-JAG - this enables AI Agent delegation
-
    **Sign-in redirect URIs:**
    ```
    https://placeholder.vercel.app/api/auth/callback/okta
@@ -411,7 +404,7 @@ This application handles user login and is linked to your AI Agent.
 
    **Sign-out redirect URIs:**
    ```
-   https://placeholder.vercel.app
+   https://placeholder.vercel.app/auth/signin
    ```
 
    **Controlled access:**
@@ -473,18 +466,20 @@ Create three groups to demonstrate RBAC:
 
 ### Step 4: Register the AI Agent
 
-1. Navigate to **Applications** → **AI Agents**
+1. Navigate to **Directory** → **AI Agents**
    - If you don't see this menu item, contact Okta support to enable AI Agent Governance for your org
 2. Click **Register AI Agent**
-3. Configure:
+3. Provide following details and register the Agent:
 
    ```
    Name: ProGear Sales Agent
    Description: Multi-agent sales assistant for ProGear sporting goods
    ```
-
+  When prompted to assign Owners, select the currently logged in Okta admin or any other user you have as the owner and save.
+  
 4. **Add Credentials:**
-   - Click **Add credential**
+   - Select the ***Registered Agent** and navigate to ***Credentials** tab
+   - Click **Add Public Key**
    - Select **Generate new key pair**
    - Okta generates an RS256 public/private key pair
    - **Download and save the private key (JWK format)** - click the download button
@@ -586,11 +581,11 @@ Create one authorization server per MCP API. Each represents a different domain 
 
    | Name | Description | Default Scope |
    |------|-------------|---------------|
-   | `sales:read` | View sales data | No |
-   | `sales:quote` | Create quotes | No |
+   | `sales:read`  | View sales data | No |
+   | `sales:quote` | Create quotes   | No |
    | `sales:order` | Create/modify orders | No |
 
-6. **Add Access Policy:**
+7. **Add Access Policy:**
    - Go to **Access Policies** tab → **Add Policy**
 
    ```
@@ -599,7 +594,7 @@ Create one authorization server per MCP API. Each represents a different domain 
    Assign to: All clients
    ```
 
-7. **Add Policy Rule:**
+8. **Add Policy Rule:**
    - Inside the policy, click **Add Rule**
 
    ```
@@ -607,7 +602,6 @@ Create one authorization server per MCP API. Each represents a different domain 
    IF Grant type is: Authorization Code, Token Exchange, JWT Bearer
    AND User is: Assigned the app and a member of: ProGear-Sales
    AND Scopes requested: sales:read, sales:quote, sales:order
-   THEN Access is: Allowed
    ```
 
 #### 5.2 Inventory MCP Authorization Server
@@ -631,7 +625,6 @@ Audience: api://progear-inventory
 IF Grant type is: Authorization Code, Token Exchange, JWT Bearer
 AND User is member of: ProGear-Warehouse
 AND Scopes: inventory:read, inventory:write, inventory:alert
-THEN: Allowed
 ```
 
 **Rule 2: Sales Read Access** (Priority 2)
@@ -639,7 +632,6 @@ THEN: Allowed
 IF Grant type is: Authorization Code, Token Exchange, JWT Bearer
 AND User is member of: ProGear-Sales
 AND Scopes: inventory:read
-THEN: Allowed
 ```
 
 #### 5.3 Customer MCP Authorization Server
@@ -659,7 +651,6 @@ Audience: api://progear-customer
 IF Grant type is: Authorization Code, Token Exchange, JWT Bearer
 AND User is member of: ProGear-Sales
 AND Scopes: customer:read, customer:lookup, customer:history
-THEN: Allowed
 ```
 
 #### 5.4 Pricing MCP Authorization Server
@@ -681,7 +672,6 @@ Audience: api://progear-pricing
 IF Grant type is: Authorization Code, Token Exchange, JWT Bearer
 AND User is member of: ProGear-Finance
 AND Scopes: pricing:read, pricing:margin, pricing:discount
-THEN: Allowed
 ```
 
 **Rule 2: Sales Read Access** (Priority 2)
@@ -689,7 +679,6 @@ THEN: Allowed
 IF Grant type is: Authorization Code, Token Exchange, JWT Bearer
 AND User is member of: ProGear-Sales
 AND Scopes: pricing:read
-THEN: Allowed
 ```
 
 ### Step 6: Configure Policy Assigned Clients (CRITICAL!)
@@ -705,7 +694,20 @@ For each Authorization Server, you must add the AI Agent to the policy's "Assign
 
 Repeat for all 4 authorization servers.
 
-### Step 7: Record All Your IDs
+### Step 7: Update Agent managed connections
+Once you have create authorization servers per MCP API, Use managed connections to add connections to all auth servers with scopes listed for data access while maintaining centralized control through Okta.
+**Manage Connection:**
+   - Select the ***Registered Agent** and navigate to ***Managed Connections** tab
+   - Click **Add Connection**
+     
+     | Name | Details  |  Allowed Scopes |
+     |------|----------|-----------------|
+     | `ProGear Customer MCP` | Only allow | customer:history customer:lookup customer:read |
+     | `ProGear Pricing MCP` | Only allow | pricing:discount pricing:margin pricing:read |
+     | `ProGear Inventory MCP` | Only allow | inventory:write inventory:alert inventory:read |
+     | `ProGear Sales MCP` | Only allow | sales:order sales:read sales:quote |
+
+### Step 8: Record All Your IDs
 
 **Before proceeding, verify you have collected all these values.** You'll need them for Vercel and Render configuration.
 
