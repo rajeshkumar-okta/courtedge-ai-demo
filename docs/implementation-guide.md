@@ -591,7 +591,7 @@ Create one authorization server per MCP API. Each represents a different domain 
    ```
    Name: Sales Agent Policy
    Description: Controls access to Sales MCP
-   Assign to: All clients
+   Assign to: ProGear Sales Agent and ProGear Sales Agent App
    ```
 
 8. **Add Policy Rule:**
@@ -611,12 +611,20 @@ Repeat the process:
 ```
 Name: ProGear Inventory MCP
 Audience: api://progear-inventory
+Description: Authorization for Sales Inventory API
 ```
 
 **Scopes:**
 - `inventory:read` - View inventory levels
 - `inventory:write` - Modify inventory
 - `inventory:alert` - Manage inventory alerts
+
+**Access Policy:**
+   ```
+   Name: Inventory Agent Policy
+   Description: Controls access to Inventory MCP
+   Assign to: ProGear Sales Agent and ProGear Sales Agent App
+   ```
 
 **Policy Rules (add TWO rules):**
 
@@ -639,6 +647,7 @@ AND Scopes: inventory:read
 ```
 Name: ProGear Customer MCP
 Audience: api://progear-customer
+Description: Authorization for Sales Customer API
 ```
 
 **Scopes:**
@@ -646,8 +655,16 @@ Audience: api://progear-customer
 - `customer:lookup` - Search customers
 - `customer:history` - View purchase history
 
+**Access Policy:**
+   ```
+   Name: Customer Agent Policy
+   Description: Controls access to Customer MCP
+   Assign to: ProGear Sales Agent and ProGear Sales Agent App
+   ```
+
 **Policy Rule:**
 ```
+Rule Name: Customer Group Access
 IF Grant type is: Authorization Code, Token Exchange, JWT Bearer
 AND User is member of: ProGear-Sales
 AND Scopes: customer:read, customer:lookup, customer:history
@@ -658,12 +675,20 @@ AND Scopes: customer:read, customer:lookup, customer:history
 ```
 Name: ProGear Pricing MCP
 Audience: api://progear-pricing
+Description: Authorization for Sales Pricing API
 ```
 
 **Scopes:**
 - `pricing:read` - View prices
 - `pricing:margin` - View profit margins
 - `pricing:discount` - View/apply discounts
+
+**Access Policy:**
+   ```
+   Name: Pricing Agent Policy
+   Description: Controls access to Pricing MCP
+   Assign to: ProGear Sales Agent and ProGear Sales Agent App
+   ```
 
 **Policy Rules (add TWO rules):**
 
@@ -681,7 +706,7 @@ AND User is member of: ProGear-Sales
 AND Scopes: pricing:read
 ```
 
-### Step 6: Configure Policy Assigned Clients (CRITICAL!)
+### Step 6: Verify Policy Assigned Clients (CRITICAL!)
 
 > **This step is the #1 cause of "no_matching_policy" errors.** Don't skip it!
 
@@ -689,8 +714,7 @@ For each Authorization Server, you must add the AI Agent to the policy's "Assign
 
 1. Go to **Security** → **API** → **[Your Auth Server]** → **Access Policies** → **[Your Policy]**
 2. Click **Edit** on the policy
-3. In **Assigned clients**, add the **AI Agent entity** (`wlp...`)
-4. **NOT just the OIDC app** (`0oa...`) - you must add the AI Agent entity specifically!
+3. In **Assigned clients**, add the following **Clients** (`ProGear Sales Agent` and `ProGear Sales Agent App`)
 
 Repeat for all 4 authorization servers.
 
@@ -830,7 +854,7 @@ Use this checklist to track what you've collected:
    | `OKTA_CLIENT_ID` | Your OIDC client ID | Same as NEXT_PUBLIC version |
    | `OKTA_CLIENT_SECRET` | Your OIDC client secret | From Okta app settings |
 
-4. Click **Save** for each variable, then go to **Deployments** and click **Redeploy** on the latest deployment
+5. Click **Save** for each variable, then go to **Deployments** and click **Redeploy** on the latest deployment
 
 ### Step 4: Update Okta Redirect URIs
 
@@ -846,7 +870,7 @@ Now that you have your real Vercel URL, go back to Okta and replace the placehol
 
    **Sign-out redirect URIs:**
    - Remove: `https://placeholder.vercel.app`
-   - Add: `https://your-actual-project.vercel.app`
+   - Add: `https://your-actual-project.vercel.app/auth/signin`
 
 4. Click **Save**
 
@@ -877,14 +901,14 @@ Now that you have your real Vercel URL, go back to Okta and replace the placehol
    | Setting | Value |
    |---------|-------|
    | **Name** | `progear-backend` (or your preferred name) |
-   | **Region** | Oregon (US West) or closest to you |
+   | **Language** | Python 3 |
    | **Branch** | `main` |
+   | **Region** | Oregon (US West) or closest to you |
    | **Root Directory** | `backend` |
-   | **Runtime** | Python 3 |
    | **Build Command** | `pip install -r requirements.txt` |
    | **Start Command** | `uvicorn api.main:app --host 0.0.0.0 --port $PORT` |
 
-4. Choose your plan:
+5. Choose your plan:
    - **Free**: Works but has cold starts (service sleeps after 15 min inactivity)
    - **Starter ($7/mo)**: Recommended for demos - always on
 
