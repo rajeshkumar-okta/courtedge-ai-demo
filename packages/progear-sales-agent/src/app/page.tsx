@@ -25,6 +25,14 @@ const exampleQuestions = [
   { text: "Which customers have Platinum tier?", icon: "⭐" },
 ];
 
+// Predefined prompts for quick access in header
+const predefinedPrompts = [
+  { text: "Check inventory", icon: "📦", shortText: "Inventory" },
+  { text: "Show pricing", icon: "💰", shortText: "Pricing" },
+  { text: "Customer lookup", icon: "👥", shortText: "Customers" },
+  { text: "Recent orders", icon: "📋", shortText: "Orders" },
+];
+
 const CHAT_STORAGE_KEY = 'progear-chat-messages';
 const AGENT_FLOW_STORAGE_KEY = 'progear-agent-flow';
 const TOKEN_EXCHANGE_STORAGE_KEY = 'progear-token-exchanges';
@@ -223,6 +231,22 @@ export default function Home() {
               <h1 className="text-white text-2xl font-bold">CourtEdge ProGear</h1>
               <p className="text-gray-300 text-sm">AI-Powered Basketball Equipment Sales</p>
             </div>
+          </div>
+
+          {/* Predefined Prompts */}
+          <div className="flex items-center space-x-2">
+            {predefinedPrompts.map((prompt, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSendMessage(prompt.text)}
+                disabled={isLoading}
+                className="px-3 py-2 bg-white/10 hover:bg-accent/40 text-white rounded-lg transition border border-white/20 hover:border-accent/50 flex items-center space-x-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                title={prompt.text}
+              >
+                <span>{prompt.icon}</span>
+                <span className="hidden md:inline">{prompt.shortText}</span>
+              </button>
+            ))}
           </div>
 
           <div className="flex items-center space-x-3">
