@@ -98,6 +98,18 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
+  const handleGoHome = () => {
+    // Clear chat messages and reset to landing page with prompts
+    setChatMessages([]);
+    setCurrentAgentFlow([]);
+    setCurrentTokenExchanges([]);
+    setMessage('');
+    // Clear session storage
+    sessionStorage.removeItem(CHAT_STORAGE_KEY);
+    sessionStorage.removeItem(AGENT_FLOW_STORAGE_KEY);
+    sessionStorage.removeItem(TOKEN_EXCHANGE_STORAGE_KEY);
+  };
+
   const handleSignOut = async () => {
     // Get the idToken BEFORE signing out (session will be cleared after signOut)
     const idToken = session?.idToken;
@@ -219,6 +231,17 @@ export default function Home() {
 
         <div className="px-6 py-4 flex justify-between items-center relative z-10">
           <div className="flex items-center space-x-4">
+            {/* Home Button */}
+            <button
+              onClick={handleGoHome}
+              className="p-2 bg-white/10 hover:bg-accent/40 text-white rounded-lg transition border border-white/20 hover:border-accent/50 flex items-center justify-center"
+              title="Go to Home"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </button>
+
             <div className="relative">
               <span className="text-5xl">🏀</span>
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-okta-blue rounded-full border-2 border-white flex items-center justify-center">
