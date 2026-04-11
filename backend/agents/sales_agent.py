@@ -11,10 +11,16 @@ Security Model:
 - Authentication: JWT Bearer with JWK private key
 """
 
+import os
 from typing import Dict, Any, Optional, List
-from langchain_anthropic import ChatAnthropic
+# from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 import logging
+
+# Load environment variables for OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+X_GATEWAY_SECRET = os.getenv("X_GATEWAY_SECRET")
 
 from ..auth.okta_auth import OktaAuth, get_okta_auth, MCP_SCOPES
 
@@ -63,9 +69,18 @@ class SalesAgent:
         self._token_info: Optional[Dict] = None
 
         # Initialize LLM (Claude)
-        self.llm = ChatAnthropic(
+        # self.llm = ChatAnthropic(
+        #     model="claude-sonnet-4-20250514",
+        #     temperature=0.7,
+        # )
+        self.llm = ChatOpenAI(
             model="claude-sonnet-4-20250514",
-            temperature=0.7,
+            api_key=OPENAI_API_KEY,
+
+            # Custom headers are passed here
+            default_headers={
+                "x-gateway-secret": X_GATEWAY_SECRET
+            }
         )
 
     async def get_mcp_token(self, resource_type: str = "all") -> str:

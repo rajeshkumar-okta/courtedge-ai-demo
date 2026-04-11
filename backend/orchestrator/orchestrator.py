@@ -13,12 +13,18 @@ Key feature for demo: Shows which agents are accessible based on user's
 group membership, with clear success/denied visualization.
 """
 
+import os
 from typing import Dict, Any, List, Optional, TypedDict
 from langgraph.graph import StateGraph, END
-from langchain_anthropic import ChatAnthropic
+# from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 import logging
 import json
+
+# Load environment variables for OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+X_GATEWAY_SECRET = os.getenv("X_GATEWAY_SECRET")
 
 from auth.multi_agent_auth import (
     get_multi_agent_exchange,
@@ -156,15 +162,33 @@ class Orchestrator:
         self.token_exchange = get_multi_agent_exchange()
 
         # Initialize router LLM (fast model for routing decisions)
-        self.router_llm = ChatAnthropic(
+        # self.router_llm = ChatAnthropic(
+        #     model="claude-sonnet-4-20250514",
+        #     temperature=0,
+        # )
+        self.router_llm = ChatOpenAI(
             model="claude-sonnet-4-20250514",
-            temperature=0,
+            api_key=OPENAI_API_KEY,
+
+            # Custom headers are passed here
+            default_headers={
+                "x-gateway-secret": X_GATEWAY_SECRET
+            }
         )
 
         # Initialize response LLM (for combining results)
-        self.response_llm = ChatAnthropic(
+        # self.response_llm = ChatAnthropic(
+        #     model="claude-sonnet-4-20250514",
+        #     temperature=0.7,
+        # )
+        self.response_llm = ChatOpenAI(
             model="claude-sonnet-4-20250514",
-            temperature=0.7,
+            api_key=OPENAI_API_KEY,
+
+            # Custom headers are passed here
+            default_headers={
+                "x-gateway-secret": X_GATEWAY_SECRET
+            }
         )
 
         # Build the workflow
