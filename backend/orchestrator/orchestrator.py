@@ -16,16 +16,13 @@ group membership, with clear success/denied visualization.
 import os
 from typing import Dict, Any, List, Optional, TypedDict
 from langgraph.graph import StateGraph, END
-# from langchain_anthropic import ChatAnthropic
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 import logging
 import json
 
-# Load environment variables for LLM Gateway
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-X_GATEWAY_SECRET = os.getenv("X_GATEWAY_SECRET")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL")  # Gateway/proxy URL (e.g., https://llm.atko.ai)
+# Load environment variables for Anthropic API
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "claude-sonnet-4-20250514")  # Model name
 
 from auth.multi_agent_auth import (
@@ -164,28 +161,16 @@ class Orchestrator:
         self.token_exchange = get_multi_agent_exchange()
 
         # Initialize router LLM (fast model for routing decisions)
-        # self.router_llm = ChatAnthropic(
-        #     model="claude-sonnet-4-20250514",
-        #     temperature=0,
-        # )
-        self.router_llm = ChatOpenAI(
+        self.router_llm = ChatAnthropic(
             model=LLM_MODEL_NAME,
-            openai_api_key=OPENAI_API_KEY,
-            openai_api_base=LLM_BASE_URL,
-            default_headers={
-                "x-gateway-secret": X_GATEWAY_SECRET or ""
-            },
+            api_key=ANTHROPIC_API_KEY,
             temperature=0
         )
 
         # Initialize response LLM (for combining results)
-        self.response_llm = ChatOpenAI(
+        self.response_llm = ChatAnthropic(
             model=LLM_MODEL_NAME,
-            openai_api_key=OPENAI_API_KEY,
-            openai_api_base=LLM_BASE_URL,
-            default_headers={
-                "x-gateway-secret": X_GATEWAY_SECRET or ""
-            },
+            api_key=ANTHROPIC_API_KEY,
             temperature=0.7
         )
 
