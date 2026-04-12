@@ -25,7 +25,8 @@ import json
 # Load environment variables for LLM Gateway
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 X_GATEWAY_SECRET = os.getenv("X_GATEWAY_SECRET")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL")  # Gateway/proxy URL (e.g., https://your-gateway.com/v1)
+LLM_BASE_URL = os.getenv("LLM_BASE_URL")  # Gateway/proxy URL (e.g., https://llm.atko.ai)
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "claude-sonnet-4-20250514")  # Model name
 
 from auth.multi_agent_auth import (
     get_multi_agent_exchange,
@@ -168,9 +169,9 @@ class Orchestrator:
         #     temperature=0,
         # )
         self.router_llm = ChatOpenAI(
-            model="claude-sonnet-4-20250514",
+            model=LLM_MODEL_NAME,
             openai_api_key=OPENAI_API_KEY,
-            openai_api_base=LLM_BASE_URL,  # Gateway URL (e.g., https://llm.atko.ai)
+            openai_api_base=LLM_BASE_URL,
             default_headers={
                 "x-gateway-secret": X_GATEWAY_SECRET or ""
             },
@@ -178,14 +179,10 @@ class Orchestrator:
         )
 
         # Initialize response LLM (for combining results)
-        # self.response_llm = ChatAnthropic(
-        #     model="claude-sonnet-4-20250514",
-        #     temperature=0.7,
-        # )
         self.response_llm = ChatOpenAI(
-            model="claude-sonnet-4-20250514",
+            model=LLM_MODEL_NAME,
             openai_api_key=OPENAI_API_KEY,
-            openai_api_base=LLM_BASE_URL,  # Gateway URL (e.g., https://llm.atko.ai)
+            openai_api_base=LLM_BASE_URL,
             default_headers={
                 "x-gateway-secret": X_GATEWAY_SECRET or ""
             },
