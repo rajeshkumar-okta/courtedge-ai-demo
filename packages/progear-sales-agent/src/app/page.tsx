@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AgentFlowCard from '@/components/AgentFlowCard';
 import TokenExchangeCard from '@/components/TokenExchangeCard';
+import { API_BASE_URL, OKTA_DOMAIN } from '@/lib/config';
 
 interface Message {
   id: string;
@@ -124,7 +125,7 @@ export default function Home() {
 
     // End Okta session using OIDC logout endpoint
     // Reference: https://developer.okta.com/docs/guides/sign-users-out/react/main/
-    const oktaDomain = process.env.NEXT_PUBLIC_OKTA_DOMAIN;
+    const oktaDomain = OKTA_DOMAIN;
     const postLogoutRedirect = encodeURIComponent(`${window.location.origin}/auth/signin`);
 
     if (oktaDomain && idToken) {
@@ -155,7 +156,6 @@ export default function Home() {
     setCurrentTokenExchanges([]);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const idToken = session?.idToken;
 
       const headers: Record<string, string> = {
@@ -166,7 +166,7 @@ export default function Home() {
         headers['Authorization'] = `Bearer ${idToken}`;
       }
 
-      const response = await fetch(`${apiUrl}/api/chat`, {
+      const response = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ message: userMessage }),
