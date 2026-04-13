@@ -4,7 +4,8 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(ls -la /Users/rajeshkumar/Documents/GitHub/courtedge-ai-demo/.env*)",
-      "Bash(ls -la /Users/rajeshkumar/Documents/GitHub/courtedge-ai-demo/packages/progear-sales-agent/.env*)"
+      "Bash(ls -la /Users/rajeshkumar/Documents/GitHub/courtedge-ai-demo/packages/progear-sales-agent/.env*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

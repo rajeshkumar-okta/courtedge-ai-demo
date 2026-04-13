@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AgentFlowCard from '@/components/AgentFlowCard';
 import TokenExchangeCard from '@/components/TokenExchangeCard';
+import FGAExplanationCard from '@/components/FGAExplanationCard';
 import { API_BASE_URL, OKTA_DOMAIN } from '@/lib/config';
 
 interface Message {
@@ -15,6 +16,7 @@ interface Message {
   timestamp: number;
   agentFlow?: any[];
   tokenExchanges?: any[];
+  fgaChecks?: any[];
 }
 
 const exampleQuestions = [
@@ -37,6 +39,7 @@ const predefinedPrompts = [
 const CHAT_STORAGE_KEY = 'progear-chat-messages';
 const AGENT_FLOW_STORAGE_KEY = 'progear-agent-flow';
 const TOKEN_EXCHANGE_STORAGE_KEY = 'progear-token-exchanges';
+const FGA_CHECKS_STORAGE_KEY = 'progear-fga-checks';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -46,6 +49,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentAgentFlow, setCurrentAgentFlow] = useState<any[]>([]);
   const [currentTokenExchanges, setCurrentTokenExchanges] = useState<any[]>([]);
+  const [currentFGAChecks, setCurrentFGAChecks] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isLoadingAuth = status === 'loading';
@@ -56,6 +60,7 @@ export default function Home() {
       const savedMessages = sessionStorage.getItem(CHAT_STORAGE_KEY);
       const savedAgentFlow = sessionStorage.getItem(AGENT_FLOW_STORAGE_KEY);
       const savedTokenExchanges = sessionStorage.getItem(TOKEN_EXCHANGE_STORAGE_KEY);
+      const savedFGAChecks = sessionStorage.getItem(FGA_CHECKS_STORAGE_KEY);
 
       if (savedMessages) {
         setChatMessages(JSON.parse(savedMessages));
@@ -65,6 +70,9 @@ export default function Home() {
       }
       if (savedTokenExchanges) {
         setCurrentTokenExchanges(JSON.parse(savedTokenExchanges));
+      }
+      if (savedFGAChecks) {
+        setCurrentFGAChecks(JSON.parse(savedFGAChecks));
       }
     } catch (e) {
       console.error('Error loading chat history:', e);
@@ -78,7 +86,7 @@ export default function Home() {
     }
   }, [chatMessages]);
 
-  // Save agent flow and token exchanges to sessionStorage
+  // Save agent flow, token exchanges, and FGA checks to sessionStorage
   useEffect(() => {
     if (currentAgentFlow.length > 0) {
       sessionStorage.setItem(AGENT_FLOW_STORAGE_KEY, JSON.stringify(currentAgentFlow));
@@ -86,7 +94,10 @@ export default function Home() {
     if (currentTokenExchanges.length > 0) {
       sessionStorage.setItem(TOKEN_EXCHANGE_STORAGE_KEY, JSON.stringify(currentTokenExchanges));
     }
-  }, [currentAgentFlow, currentTokenExchanges]);
+    if (currentFGAChecks.length > 0) {
+      sessionStorage.setItem(FGA_CHECKS_STORAGE_KEY, JSON.stringify(currentFGAChecks));
+    }
+  }, [currentAgentFlow, currentTokenExchanges, currentFGAChecks]);
 
   // Redirect to sign-in page if not authenticated
   useEffect(() => {
@@ -104,11 +115,13 @@ export default function Home() {
     setChatMessages([]);
     setCurrentAgentFlow([]);
     setCurrentTokenExchanges([]);
+    setCurrentFGAChecks([]);
     setMessage('');
     // Clear session storage
     sessionStorage.removeItem(CHAT_STORAGE_KEY);
     sessionStorage.removeItem(AGENT_FLOW_STORAGE_KEY);
     sessionStorage.removeItem(TOKEN_EXCHANGE_STORAGE_KEY);
+    sessionStorage.removeItem(FGA_CHECKS_STORAGE_KEY);
   };
 
   const handleSignOut = async () => {
@@ -122,6 +135,7 @@ export default function Home() {
     sessionStorage.removeItem(CHAT_STORAGE_KEY);
     sessionStorage.removeItem(AGENT_FLOW_STORAGE_KEY);
     sessionStorage.removeItem(TOKEN_EXCHANGE_STORAGE_KEY);
+    sessionStorage.removeItem(FGA_CHECKS_STORAGE_KEY);
 
     // End Okta session using OIDC logout endpoint
     // Reference: https://developer.okta.com/docs/guides/sign-users-out/react/main/
@@ -154,6 +168,7 @@ export default function Home() {
     setIsLoading(true);
     setCurrentAgentFlow([{ step: 'router', action: 'Processing request...', status: 'processing' }]);
     setCurrentTokenExchanges([]);
+    setCurrentFGAChecks([]);
 
     try {
       const idToken = session?.idToken;
@@ -174,9 +189,10 @@ export default function Home() {
 
       const data = await response.json();
 
-      // Update agent flow and token exchanges
+      // Update agent flow, token exchanges, and FGA checks
       setCurrentAgentFlow(data.agent_flow || []);
       setCurrentTokenExchanges(data.token_exchanges || []);
+      setCurrentFGAChecks(data.fga_checks || []);
 
       const assistantMessage: Message = {
         id: `msg-${Date.now()}`,
@@ -185,6 +201,7 @@ export default function Home() {
         timestamp: Date.now(),
         agentFlow: data.agent_flow,
         tokenExchanges: data.token_exchanges,
+        fgaChecks: data.fga_checks,
       };
       setChatMessages((prev) => [...prev, assistantMessage]);
 
@@ -428,6 +445,9 @@ export default function Home() {
 
           {/* Agent Flow */}
           <AgentFlowCard steps={currentAgentFlow} isLoading={isLoading} />
+
+          {/* FGA Fine-Grained Authorization */}
+          <FGAExplanationCard checks={currentFGAChecks} isLoading={isLoading} />
 
           {/* Token Exchanges */}
           <TokenExchangeCard exchanges={currentTokenExchanges} />

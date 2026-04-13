@@ -30,6 +30,7 @@ from auth.multi_agent_auth import (
     AGENT_SALES, AGENT_INVENTORY, AGENT_CUSTOMER, AGENT_PRICING
 )
 from auth.agent_config import get_agent_config, DEMO_AGENTS
+from auth.fga_client import check_agent_access, is_fga_configured, FGACheckResult
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,9 @@ class WorkflowState(TypedDict):
     # Tracking for demo visibility
     agent_flow: List[Dict[str, Any]]
     token_exchanges: List[Dict[str, Any]]
+
+    # FGA (Fine-Grained Authorization) checks
+    fga_checks: List[Dict[str, Any]]
 
     # Final response
     final_response: Optional[str]
@@ -183,13 +187,16 @@ class Orchestrator:
 
         # Add nodes
         workflow.add_node("router", self._router_node)
+        workflow.add_node("fga_check", self._fga_check_node)  # FGA gatekeeper
         workflow.add_node("exchange_tokens", self._exchange_tokens_node)
         workflow.add_node("process_agents", self._process_agents_node)
         workflow.add_node("generate_response", self._generate_response_node)
 
-        # Linear flow: router -> exchange -> process -> response
+        # Linear flow: router -> fga_check -> exchange -> process -> response
+        # FGA runs BEFORE token exchange (cheaper, filters early)
         workflow.set_entry_point("router")
-        workflow.add_edge("router", "exchange_tokens")
+        workflow.add_edge("router", "fga_check")
+        workflow.add_edge("fga_check", "exchange_tokens")
         workflow.add_edge("exchange_tokens", "process_agents")
         workflow.add_edge("process_agents", "generate_response")
         workflow.add_edge("generate_response", END)
@@ -294,6 +301,103 @@ Return ONLY the JSON object, no other text."""
             "status": "completed",
             "agents": agents,
             "scopes": agent_scopes
+        })
+
+        return state
+
+    async def _fga_check_node(self, state: WorkflowState) -> WorkflowState:
+        """
+        Check FGA permissions before token exchange.
+        Filters out agents the user cannot invoke based on fine-grained rules.
+
+        This is the "Okta + FGA Better Together" integration point:
+        - FGA evaluates contextual conditions (e.g., vacation status)
+        - Runs BEFORE Okta token exchange (cheaper, early filtering)
+        - If FGA denies, we skip token exchange entirely
+
+        Currently checks:
+        - inventory agent -> FGA inventory_system with check_vacation condition
+        - all other agents -> pass through (no FGA model yet)
+        """
+        agents = state["agents_to_invoke"]
+        user_email = self.user_info.get("email", self.user_info.get("sub", ""))
+
+        if not user_email or not agents:
+            return state
+
+        state["agent_flow"].append({
+            "step": "fga_check",
+            "action": "Checking fine-grained permissions (Auth0 FGA)",
+            "status": "processing"
+        })
+
+        # Get vacation status from user's ID token claims
+        # This claim should be configured on Okta Org Auth Server
+        is_on_vacation = self.user_info.get("is_on_vacation", False)
+
+        # Check each agent against FGA
+        allowed_agents = []
+        fga_checks = []
+
+        for agent_type in agents:
+            scopes = state["agent_scopes"].get(agent_type, [])
+
+            # Run FGA check
+            result: FGACheckResult = await check_agent_access(
+                user_email=user_email,
+                agent_type=agent_type,
+                scopes=scopes,
+                is_on_vacation=is_on_vacation,
+            )
+
+            # Record the FGA check for UI visibility
+            fga_check_record = {
+                "agent": agent_type,
+                "allowed": result.allowed,
+                "relation": result.relation,
+                "object": result.object,
+                "user": result.user,
+                "context": result.context,
+                "reason": result.reason,
+                "requested_scopes": scopes,
+            }
+            fga_checks.append(fga_check_record)
+
+            if result.allowed:
+                allowed_agents.append(agent_type)
+            else:
+                # Record as denied in token_exchanges for UI visibility
+                config = get_agent_config(agent_type)
+                demo = DEMO_AGENTS.get(agent_type, {})
+
+                state["token_exchanges"].append({
+                    "agent": agent_type,
+                    "agent_name": config.name if config else demo.get("name", ""),
+                    "color": config.color if config else demo.get("color", "#888"),
+                    "success": False,
+                    "access_denied": True,
+                    "status": "denied",
+                    "scopes": [],
+                    "requested_scopes": scopes,
+                    "error": f"FGA: {result.reason}",
+                    "demo_mode": False,
+                    "fga_denied": True,  # Flag for UI to show FGA-specific styling
+                })
+
+        state["agents_to_invoke"] = allowed_agents
+        state["fga_checks"] = fga_checks
+
+        denied_count = len(agents) - len(allowed_agents)
+        fga_status = "enabled" if is_fga_configured() else "not configured"
+
+        state["agent_flow"].append({
+            "step": "fga_check",
+            "action": f"FGA ({fga_status}): {len(allowed_agents)} allowed, {denied_count} denied",
+            "status": "completed",
+            "details": {
+                "vacation_status": is_on_vacation,
+                "user_email": user_email,
+            }
         })
 
         return state
@@ -665,6 +769,7 @@ If some agents were denied, acknowledge what information is missing but focus on
             "agent_results": {},
             "agent_flow": [],
             "token_exchanges": [],
+            "fga_checks": [],  # FGA fine-grained authorization checks
             "final_response": None,
         }
 
@@ -675,4 +780,5 @@ If some agents were denied, acknowledge what information is missing but focus on
             "content": final_state["final_response"],
             "agent_flow": final_state["agent_flow"],
             "token_exchanges": final_state["token_exchanges"],
+            "fga_checks": final_state["fga_checks"],
         }
