@@ -16,8 +16,7 @@ group membership, with clear success/denied visualization.
 import os
 from typing import Dict, Any, List, Optional, TypedDict
 from langgraph.graph import StateGraph, END
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
+import anthropic
 import logging
 import json
 
@@ -164,19 +163,9 @@ class Orchestrator:
         # Get multi-agent token exchange manager
         self.token_exchange = get_multi_agent_exchange()
 
-        # Initialize router LLM (fast model for routing decisions)
-        self.router_llm = ChatAnthropic(
-            model=LLM_MODEL_NAME,
-            api_key=ANTHROPIC_API_KEY,
-            temperature=0
-        )
-
-        # Initialize response LLM (for combining results)
-        self.response_llm = ChatAnthropic(
-            model=LLM_MODEL_NAME,
-            api_key=ANTHROPIC_API_KEY,
-            temperature=0.7
-        )
+        # Initialize Anthropic client (raw SDK for better control)
+        self.anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        logger.info(f"Anthropic client initialized with model: {LLM_MODEL_NAME}")
 
         # Build the workflow
         self.workflow = self._build_workflow()
@@ -262,8 +251,15 @@ IMPORTANT: Choose scopes based on the operation type:
 
 Return ONLY the JSON object, no other text."""
 
-            response = await self.router_llm.ainvoke([HumanMessage(content=routing_prompt)])
-            routing_json = json.loads(response.content)
+            # Use raw Anthropic SDK for routing
+            response = self.anthropic_client.messages.create(
+                model=LLM_MODEL_NAME,
+                max_tokens=500,
+                messages=[{"role": "user", "content": routing_prompt}]
+            )
+            response_text = response.content[0].text
+            logger.debug(f"Router LLM response: {response_text}")
+            routing_json = json.loads(response_text)
 
             agents = []
             agent_scopes = {}
@@ -710,11 +706,14 @@ Provide a concise, helpful response that combines the relevant information.
 If some agents were denied, acknowledge what information is missing but focus on what IS available."""
 
             try:
-                response = await self.response_llm.ainvoke([
-                    SystemMessage(content="You are a helpful AI assistant for ProGear Sporting Goods."),
-                    HumanMessage(content=synthesis_prompt)
-                ])
-                final_response = response.content
+                # Use raw Anthropic SDK for response synthesis
+                response = self.anthropic_client.messages.create(
+                    model=LLM_MODEL_NAME,
+                    max_tokens=1024,
+                    system="You are a helpful AI assistant for ProGear Sporting Goods.",
+                    messages=[{"role": "user", "content": synthesis_prompt}]
+                )
+                final_response = response.content[0].text
             except Exception as e:
                 logger.error(f"Response synthesis failed: {e}")
                 final_response = combined_data
