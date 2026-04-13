@@ -258,8 +258,15 @@ Return ONLY the JSON object, no other text."""
                 messages=[{"role": "user", "content": routing_prompt}]
             )
             response_text = response.content[0].text
-            logger.debug(f"Router LLM response: {response_text}")
-            routing_json = json.loads(response_text)
+            logger.info(f"Router LLM raw response: {response_text[:500]}")
+
+            # Extract JSON from response (handle markdown code blocks)
+            json_text = response_text.strip()
+            if json_text.startswith("```"):
+                # Remove markdown code block
+                lines = json_text.split("\n")
+                json_text = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
+            routing_json = json.loads(json_text)
 
             agents = []
             agent_scopes = {}
@@ -307,7 +314,8 @@ Return ONLY the JSON object, no other text."""
         Filters out agents the user cannot invoke based on fine-grained rules.
 
         This is the "Okta + FGA Better Together" integration point:
-        - FGA evaluates contextual conditions (e.g., vacation status)
+        - Reads user attributes from Okta token claims (is_a_manager, is_on_vacation)
+        - Evaluates FGA model logic using these claims
         - Runs BEFORE Okta token exchange (cheaper, early filtering)
         - If FGA denies, we skip token exchange entirely
 
@@ -327,9 +335,14 @@ Return ONLY the JSON object, no other text."""
             "status": "processing"
         })
 
-        # Get vacation status from user's ID token claims
-        # This claim should be configured on Okta Org Auth Server
-        is_on_vacation = self.user_info.get("is_on_vacation", False)
+        # Get user attributes from Okta ID token claims
+        # These claims should be configured on Okta Org Auth Server:
+        # - Manager: user.is_a_manager
+        # - Vacation: user.is_on_vacation
+        is_a_manager = self.user_info.get("is_a_manager", self.user_info.get("Manager", False))
+        is_on_vacation = self.user_info.get("is_on_vacation", self.user_info.get("Vacation", False))
+
+        logger.info(f"FGA claims for {user_email}: is_a_manager={is_a_manager}, is_on_vacation={is_on_vacation}")
 
         # Check each agent against FGA
         allowed_agents = []
@@ -338,11 +351,12 @@ Return ONLY the JSON object, no other text."""
         for agent_type in agents:
             scopes = state["agent_scopes"].get(agent_type, [])
 
-            # Run FGA check
+            # Run FGA check using token claims
             result: FGACheckResult = await check_agent_access(
                 user_email=user_email,
                 agent_type=agent_type,
                 scopes=scopes,
+                is_a_manager=is_a_manager,
                 is_on_vacation=is_on_vacation,
             )
 

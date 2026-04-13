@@ -1,15 +1,17 @@
 """
 Auth0 FGA Client for Agent Permission Gating
 
-Checks whether a user can access the inventory system before
-attempting Okta token exchange. Uses the check_vacation condition
-to block managers who are on vacation.
-
+Evaluates fine-grained authorization using Okta token claims.
 This demonstrates "Okta + FGA Better Together":
 - Okta: Identity (ID-JAG), coarse-grained RBAC (group membership)
 - FGA: Fine-grained, contextual authorization (runtime conditions)
 
-FGA Model (already in store):
+Instead of requiring pre-seeded FGA tuples for every user, we evaluate
+the FGA model logic using claims from the authenticated user's token:
+- is_a_manager: From Okta user profile (Manager claim)
+- is_on_vacation: From Okta user profile (Vacation claim)
+
+FGA Model Logic (evaluated locally using token claims):
   type inventory_system
     relations
       define can_increase_inventory: manager
@@ -18,18 +20,18 @@ FGA Model (already in store):
   condition check_vacation(is_on_vacation: bool) {
     is_on_vacation == false
   }
+
+This approach:
+- Works for ANY authenticated user (no hardcoded tuples)
+- Uses Okta as single source of truth for user attributes
+- Maintains same FGA decision logic and UI visualization
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
-
-# Lazy import to avoid startup errors if FGA not configured
-_fga_client = None
-_fga_config = None
 
 
 @dataclass
@@ -44,145 +46,85 @@ class FGACheckResult:
 
 
 # Maps ProGear agent types -> FGA object types
-# Only inventory_system is modeled in FGA for now.
+# Only inventory_system is modeled for now.
 # Other agents pass through (no FGA check).
 AGENT_TO_FGA_OBJECT = {
     "inventory": "inventory_system:main_db",
 }
 
 
-def _get_fga_config():
-    """Build FGA configuration from environment variables."""
-    global _fga_config
-    if _fga_config is not None:
-        return _fga_config
-
-    api_url = os.getenv("FGA_API_URL", "")
-    store_id = os.getenv("FGA_STORE_ID", "")
-    client_id = os.getenv("FGA_CLIENT_ID", "")
-    client_secret = os.getenv("FGA_CLIENT_SECRET", "")
-
-    if not all([api_url, store_id, client_id, client_secret]):
-        logger.info("FGA not configured - skipping fine-grained checks")
-        return None
-
-    try:
-        from openfga_sdk import ClientConfiguration
-        from openfga_sdk.credentials import Credentials, CredentialConfiguration
-
-        _fga_config = ClientConfiguration(
-            api_url=api_url,
-            store_id=store_id,
-            authorization_model_id=os.getenv("FGA_MODEL_ID", ""),
-            credentials=Credentials(
-                method='client_credentials',
-                configuration=CredentialConfiguration(
-                    api_issuer=os.getenv("FGA_API_TOKEN_ISSUER", "fga.us.auth0.com"),
-                    api_audience=os.getenv("FGA_API_AUDIENCE", "https://api.us1.fga.dev/"),
-                    client_id=client_id,
-                    client_secret=client_secret,
-                )
-            )
-        )
-        logger.info(f"FGA configured: store={store_id}, url={api_url}")
-        return _fga_config
-    except ImportError:
-        logger.warning("openfga_sdk not installed - FGA checks disabled")
-        return None
-    except Exception as e:
-        logger.error(f"FGA configuration failed: {e}")
-        return None
-
-
-async def check_inventory_access(
+def check_inventory_access_from_claims(
     user_email: str,
+    is_a_manager: bool,
+    is_on_vacation: bool,
     relation: str = "manager",
-    is_on_vacation: bool = False,
 ) -> FGACheckResult:
     """
-    Check if a user has access to the inventory system via FGA.
+    Evaluate FGA-style authorization using Okta token claims.
 
-    The check_vacation condition is passed as context - if the user
-    is on vacation, FGA denies access even if they are a manager.
+    Applies the same logic as the FGA model:
+    - manager relation: user must be a manager AND not on vacation
+    - can_increase_inventory: derived from manager (same rules)
 
     Args:
-        user_email: User's email (e.g., "mike.manager@atko.email")
-        relation: FGA relation to check ("manager" or "can_increase_inventory")
-        is_on_vacation: Whether the user is currently on vacation (from Okta profile)
+        user_email: User's email from token
+        is_a_manager: From Okta 'Manager' claim (user.is_a_manager)
+        is_on_vacation: From Okta 'Vacation' claim (user.is_on_vacation)
+        relation: FGA relation to evaluate ("manager" or "can_increase_inventory")
 
     Returns:
         FGACheckResult with allowed status and explanation
     """
-    config = _get_fga_config()
-    context = {"is_on_vacation": is_on_vacation}
     user_id = f"user:{user_email}"
     object_id = "inventory_system:main_db"
+    context = {
+        "is_a_manager": is_a_manager,
+        "is_on_vacation": is_on_vacation,
+    }
 
-    if config is None:
-        return FGACheckResult(
-            allowed=True,
-            relation=relation,
-            object=object_id,
-            user=user_id,
-            context=context,
-            reason="FGA not configured - relying on Okta RBAC"
-        )
+    # Apply FGA model logic using token claims
+    # manager: [user with check_vacation]
+    # check_vacation: is_on_vacation == false
 
-    try:
-        from openfga_sdk import OpenFgaClient
-        from openfga_sdk.client.models import ClientCheckRequest
+    if not is_a_manager:
+        # User doesn't have manager attribute
+        allowed = False
+        reason = f"Access denied: {user_email} is not a manager (is_a_manager=false)"
+    elif is_on_vacation:
+        # User is a manager but on vacation - condition fails
+        allowed = False
+        reason = f"Access denied: {user_email} is on vacation - check_vacation condition failed"
+    else:
+        # User is a manager and not on vacation - allowed
+        allowed = True
+        reason = f"Access granted: {user_email} is a manager and not on vacation"
 
-        async with OpenFgaClient(config) as fga:
-            response = await fga.check(ClientCheckRequest(
-                user=user_id,
-                relation=relation,
-                object=object_id,
-                context=context,
-            ))
-            allowed = response.allowed
+    logger.info(
+        f"FGA check (claims-based): {user_id} {relation} {object_id} "
+        f"(manager={is_a_manager}, vacation={is_on_vacation}) -> {allowed}"
+    )
 
-            if allowed:
-                reason = f"FGA allowed: {user_email} has '{relation}' on inventory_system"
-            else:
-                if is_on_vacation:
-                    reason = f"FGA denied: {user_email} is on vacation - check_vacation condition failed"
-                else:
-                    reason = f"FGA denied: {user_email} does not have '{relation}' relation"
-
-            logger.info(
-                f"FGA check: {user_id} {relation} {object_id} "
-                f"(vacation={is_on_vacation}) -> {allowed}"
-            )
-            return FGACheckResult(
-                allowed=allowed,
-                relation=relation,
-                object=object_id,
-                user=user_id,
-                context=context,
-                reason=reason
-            )
-    except Exception as e:
-        logger.error(f"FGA check failed: {e} - allowing (fail-open)")
-        return FGACheckResult(
-            allowed=True,
-            relation=relation,
-            object=object_id,
-            user=user_id,
-            context=context,
-            reason=f"FGA check error: {str(e)} - fail-open"
-        )
+    return FGACheckResult(
+        allowed=allowed,
+        relation=relation,
+        object=object_id,
+        user=user_id,
+        context=context,
+        reason=reason
+    )
 
 
 async def check_agent_access(
     user_email: str,
     agent_type: str,
     scopes: list = None,
+    is_a_manager: bool = False,
     is_on_vacation: bool = False,
 ) -> FGACheckResult:
     """
-    Check if a user can access a specific agent via FGA.
+    Check if a user can access a specific agent using token claims.
 
-    Currently only inventory_system is modeled in FGA.
+    Currently only inventory_system has FGA-style checks.
     Other agents pass through (return allowed=True).
 
     For inventory:
@@ -190,24 +132,25 @@ async def check_agent_access(
     - Read scopes -> checks "manager"
 
     Args:
-        user_email: User's email address
+        user_email: User's email address from token
         agent_type: Agent type (sales, inventory, customer, pricing)
         scopes: Requested scopes (used to determine read vs write check)
-        is_on_vacation: Whether the user is currently on vacation
+        is_a_manager: From Okta token claim
+        is_on_vacation: From Okta token claim
 
     Returns:
         FGACheckResult with allowed status and explanation
     """
     scopes = scopes or []
 
-    # Only inventory has an FGA model - others pass through
+    # Only inventory has FGA-style checks - others pass through
     if agent_type not in AGENT_TO_FGA_OBJECT:
         return FGACheckResult(
             allowed=True,
             relation="n/a",
             object=f"{agent_type}_system",
             user=f"user:{user_email}",
-            context={"is_on_vacation": is_on_vacation},
+            context={"is_a_manager": is_a_manager, "is_on_vacation": is_on_vacation},
             reason=f"No FGA model for {agent_type} - Okta RBAC only"
         )
 
@@ -217,30 +160,43 @@ async def check_agent_access(
     else:
         relation = "manager"
 
-    return await check_inventory_access(user_email, relation, is_on_vacation)
+    return check_inventory_access_from_claims(
+        user_email=user_email,
+        is_a_manager=is_a_manager,
+        is_on_vacation=is_on_vacation,
+        relation=relation,
+    )
 
 
 def is_fga_configured() -> bool:
-    """Check if FGA is configured."""
-    return _get_fga_config() is not None
+    """
+    Check if FGA-style checks are enabled.
+
+    Since we're using token claims, this is always True
+    as long as the claims are present in the token.
+    """
+    return True
 
 
 def get_fga_model_info() -> Dict[str, Any]:
     """Get FGA model information for UI display."""
     return {
-        "store_id": os.getenv("FGA_STORE_ID", ""),
-        "model_id": os.getenv("FGA_MODEL_ID", ""),
-        "api_url": os.getenv("FGA_API_URL", ""),
-        "configured": is_fga_configured(),
+        "mode": "claims-based",
+        "description": "FGA logic evaluated using Okta token claims",
         "model_description": {
             "type": "inventory_system",
             "relations": {
-                "manager": "User assigned as manager with vacation check",
+                "manager": "User with is_a_manager=true AND is_on_vacation=false",
                 "can_increase_inventory": "Derived from manager - can modify inventory"
             },
             "condition": {
                 "name": "check_vacation",
-                "description": "Blocks access when is_on_vacation == true"
+                "description": "Blocks access when is_on_vacation == true",
+                "source": "Okta user profile attribute"
             }
-        }
+        },
+        "claims_used": [
+            {"name": "Manager", "okta_attribute": "user.is_a_manager"},
+            {"name": "Vacation", "okta_attribute": "user.is_on_vacation"},
+        ]
     }
