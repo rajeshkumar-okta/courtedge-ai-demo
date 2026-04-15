@@ -31,6 +31,7 @@ from dataclasses import dataclass
 
 from openfga_sdk import ClientConfiguration, OpenFgaClient
 from openfga_sdk.client.models import ClientCheckRequest, ClientTuple
+from openfga_sdk.credentials import Credentials, CredentialConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -79,19 +80,20 @@ def _get_fga_client() -> Optional[OpenFgaClient]:
         return None
 
     try:
+        credentials = Credentials(
+            method="client_credentials",
+            configuration=CredentialConfiguration(
+                client_id=FGA_CLIENT_ID,
+                client_secret=FGA_CLIENT_SECRET,
+                api_issuer=FGA_API_TOKEN_ISSUER,
+                api_audience=FGA_API_AUDIENCE,
+            )
+        )
         configuration = ClientConfiguration(
             api_url=FGA_API_URL,
             store_id=FGA_STORE_ID,
             authorization_model_id=FGA_MODEL_ID,
-            credentials={
-                "method": "client_credentials",
-                "config": {
-                    "client_id": FGA_CLIENT_ID,
-                    "client_secret": FGA_CLIENT_SECRET,
-                    "api_issuer": FGA_API_TOKEN_ISSUER,
-                    "api_audience": FGA_API_AUDIENCE,
-                }
-            }
+            credentials=credentials,
         )
         _fga_client = OpenFgaClient(configuration)
         logger.info(f"FGA client initialized: store={FGA_STORE_ID}")
