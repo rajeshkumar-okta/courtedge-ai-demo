@@ -1,37 +1,47 @@
 """
 Auth0 FGA Client for Agent Permission Gating
 
-Evaluates fine-grained authorization using Okta token claims.
+Uses FGA API with contextual tuples for fine-grained authorization.
 This demonstrates "Okta + FGA Better Together":
 - Okta: Identity (ID-JAG), coarse-grained RBAC (group membership)
-- FGA: Fine-grained, contextual authorization (runtime conditions)
+- FGA: Fine-grained, contextual authorization (runtime conditions via API)
 
-Instead of requiring pre-seeded FGA tuples for every user, we evaluate
-the FGA model logic using claims from the authenticated user's token:
-- is_a_manager: From Okta user profile (Manager claim)
-- is_on_vacation: From Okta user profile (Vacation claim)
+Approach:
+1. Extract `sub` (userId) and `is_on_vacation` from Okta ID token claims
+2. Build contextual tuples - if user is on vacation, pass as temporary fact
+3. Call FGA API check with contextual tuples
+4. FGA evaluates against pre-seeded manager tuples + contextual vacation status
 
-FGA Model Logic (evaluated locally using token claims):
+FGA Model:
+  type user
   type inventory_system
     relations
-      define can_increase_inventory: manager
-      define manager: [user with check_vacation]
+      define manager: [user]
+      define on_vacation: [user]
+      define can_increase_inventory: manager but not on_vacation
 
-  condition check_vacation(is_on_vacation: bool) {
-    is_on_vacation == false
-  }
-
-This approach:
-- Works for ANY authenticated user (no hardcoded tuples)
-- Uses Okta as single source of truth for user attributes
-- Maintains same FGA decision logic and UI visualization
+Pre-requisite: Users must have `manager` tuple pre-seeded in FGA store.
+Vacation status is passed dynamically via contextual tuples from Okta claims.
 """
 
+import os
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
+from openfga_sdk import ClientConfiguration, OpenFgaClient
+from openfga_sdk.client.models import ClientCheckRequest, ClientTupleKey
+
 logger = logging.getLogger(__name__)
+
+# FGA Configuration from environment
+FGA_API_URL = os.getenv("FGA_API_URL", "https://api.us1.fga.dev")
+FGA_STORE_ID = os.getenv("FGA_STORE_ID")
+FGA_MODEL_ID = os.getenv("FGA_MODEL_ID")
+FGA_CLIENT_ID = os.getenv("FGA_CLIENT_ID")
+FGA_CLIENT_SECRET = os.getenv("FGA_CLIENT_SECRET")
+FGA_API_TOKEN_ISSUER = os.getenv("FGA_API_TOKEN_ISSUER", "fga.us.auth0.com")
+FGA_API_AUDIENCE = os.getenv("FGA_API_AUDIENCE", "https://api.us1.fga.dev/")
 
 
 @dataclass
@@ -43,6 +53,7 @@ class FGACheckResult:
     user: str
     context: Dict[str, Any]
     reason: str  # Human-readable explanation
+    contextual_tuples: list = None  # Tuples passed to FGA
 
 
 # Maps ProGear agent types -> FGA object types
@@ -52,117 +63,197 @@ AGENT_TO_FGA_OBJECT = {
     "inventory": "inventory_system:main_db",
 }
 
+# Singleton FGA client
+_fga_client: Optional[OpenFgaClient] = None
 
-def check_inventory_access_from_claims(
-    user_email: str,
-    is_a_manager: bool,
+
+def _get_fga_client() -> Optional[OpenFgaClient]:
+    """Get or create FGA client singleton."""
+    global _fga_client
+
+    if _fga_client is not None:
+        return _fga_client
+
+    if not FGA_STORE_ID or not FGA_CLIENT_ID or not FGA_CLIENT_SECRET:
+        logger.warning("FGA credentials not configured - FGA checks will be skipped")
+        return None
+
+    try:
+        configuration = ClientConfiguration(
+            api_url=FGA_API_URL,
+            store_id=FGA_STORE_ID,
+            authorization_model_id=FGA_MODEL_ID,
+            credentials={
+                "method": "client_credentials",
+                "config": {
+                    "client_id": FGA_CLIENT_ID,
+                    "client_secret": FGA_CLIENT_SECRET,
+                    "api_issuer": FGA_API_TOKEN_ISSUER,
+                    "api_audience": FGA_API_AUDIENCE,
+                }
+            }
+        )
+        _fga_client = OpenFgaClient(configuration)
+        logger.info(f"FGA client initialized: store={FGA_STORE_ID}")
+        return _fga_client
+    except Exception as e:
+        logger.error(f"Failed to initialize FGA client: {e}")
+        return None
+
+
+async def check_inventory_access_via_fga(
+    user_id: str,
     is_on_vacation: bool,
-    relation: str = "manager",
+    resource_id: str = "main_db",
+    relation: str = "can_increase_inventory",
 ) -> FGACheckResult:
     """
-    Evaluate FGA-style authorization using Okta token claims.
-
-    Applies the same logic as the FGA model:
-    - manager relation: user must be a manager AND not on vacation
-    - can_increase_inventory: derived from manager (same rules)
+    Check inventory access using FGA API with contextual tuples.
 
     Args:
-        user_email: User's email from token
-        is_a_manager: From Okta 'Manager' claim (user.is_a_manager)
+        user_id: User identifier from token `sub` claim
         is_on_vacation: From Okta 'Vacation' claim (user.is_on_vacation)
-        relation: FGA relation to evaluate ("manager" or "can_increase_inventory")
+        resource_id: The inventory resource ID (default: main_db)
+        relation: FGA relation to check (default: can_increase_inventory)
 
     Returns:
         FGACheckResult with allowed status and explanation
     """
-    user_id = f"user:{user_email}"
-    object_id = "inventory_system:main_db"
+    fga_user = f"user:{user_id}"
+    fga_object = f"inventory_system:{resource_id}"
+
+    # Build contextual tuples - only add on_vacation if user is on vacation
+    contextual_tuples = []
+    if is_on_vacation:
+        contextual_tuples.append(
+            ClientTupleKey(
+                user=fga_user,
+                relation="on_vacation",
+                object=fga_object
+            )
+        )
+
     context = {
-        "is_a_manager": is_a_manager,
         "is_on_vacation": is_on_vacation,
+        "contextual_tuples_count": len(contextual_tuples),
     }
 
-    # Apply FGA model logic using token claims
-    # manager: [user with check_vacation]
-    # check_vacation: is_on_vacation == false
+    # Get FGA client
+    fga_client = _get_fga_client()
 
-    if not is_a_manager:
-        # User doesn't have manager attribute
-        allowed = False
-        reason = f"Access denied: {user_email} is not a manager (is_a_manager=false)"
-    elif is_on_vacation:
-        # User is a manager but on vacation - condition fails
-        allowed = False
-        reason = f"Access denied: {user_email} is on vacation - check_vacation condition failed"
-    else:
-        # User is a manager and not on vacation - allowed
-        allowed = True
-        reason = f"Access granted: {user_email} is a manager and not on vacation"
+    if fga_client is None:
+        # FGA not configured - deny by default for safety
+        logger.warning("FGA client not available - denying access by default")
+        return FGACheckResult(
+            allowed=False,
+            relation=relation,
+            object=fga_object,
+            user=fga_user,
+            context=context,
+            reason="FGA not configured - access denied by default",
+            contextual_tuples=[],
+        )
 
-    logger.info(
-        f"FGA check (claims-based): {user_id} {relation} {object_id} "
-        f"(manager={is_a_manager}, vacation={is_on_vacation}) -> {allowed}"
-    )
+    try:
+        # Build the check request
+        check_request = ClientCheckRequest(
+            user=fga_user,
+            relation=relation,
+            object=fga_object,
+            contextual_tuples=contextual_tuples if contextual_tuples else None,
+        )
 
-    return FGACheckResult(
-        allowed=allowed,
-        relation=relation,
-        object=object_id,
-        user=user_id,
-        context=context,
-        reason=reason
-    )
+        # Call FGA API
+        response = await fga_client.check(check_request)
+        allowed = response.allowed
+
+        # Build human-readable reason
+        if allowed:
+            reason = f"Access granted: {user_id} has {relation} on {fga_object}"
+        else:
+            if is_on_vacation:
+                reason = f"Access denied: {user_id} is on vacation (on_vacation tuple blocked access)"
+            else:
+                reason = f"Access denied: {user_id} does not have {relation} on {fga_object} (not a manager in FGA)"
+
+        logger.info(
+            f"FGA API check: {fga_user} {relation} {fga_object} "
+            f"(vacation={is_on_vacation}, contextual_tuples={len(contextual_tuples)}) -> {allowed}"
+        )
+
+        return FGACheckResult(
+            allowed=allowed,
+            relation=relation,
+            object=fga_object,
+            user=fga_user,
+            context=context,
+            reason=reason,
+            contextual_tuples=[
+                {"user": fga_user, "relation": "on_vacation", "object": fga_object}
+            ] if is_on_vacation else [],
+        )
+
+    except Exception as e:
+        logger.error(f"FGA check failed: {e}")
+        return FGACheckResult(
+            allowed=False,
+            relation=relation,
+            object=fga_object,
+            user=fga_user,
+            context={**context, "error": str(e)},
+            reason=f"FGA check failed: {e}",
+            contextual_tuples=[],
+        )
 
 
 async def check_agent_access(
-    user_email: str,
+    user_id: str,
     agent_type: str,
     scopes: list = None,
-    is_a_manager: bool = False,
     is_on_vacation: bool = False,
 ) -> FGACheckResult:
     """
-    Check if a user can access a specific agent using token claims.
+    Check if a user can access a specific agent using FGA API.
 
-    Currently only inventory_system has FGA-style checks.
+    Currently only inventory_system has FGA checks.
     Other agents pass through (return allowed=True).
 
     For inventory:
     - Write scopes (inventory:write) -> checks "can_increase_inventory"
-    - Read scopes -> checks "manager"
+    - Read scopes -> checks "can_increase_inventory" (same check, manager must not be on vacation)
 
     Args:
-        user_email: User's email address from token
+        user_id: User's sub claim from token (e.g., "00u123abc")
         agent_type: Agent type (sales, inventory, customer, pricing)
-        scopes: Requested scopes (used to determine read vs write check)
-        is_a_manager: From Okta token claim
-        is_on_vacation: From Okta token claim
+        scopes: Requested scopes (used to determine relation check)
+        is_on_vacation: From Okta token claim (passed as contextual tuple)
 
     Returns:
         FGACheckResult with allowed status and explanation
     """
     scopes = scopes or []
 
-    # Only inventory has FGA-style checks - others pass through
+    # Only inventory has FGA checks - others pass through
     if agent_type not in AGENT_TO_FGA_OBJECT:
         return FGACheckResult(
             allowed=True,
             relation="n/a",
             object=f"{agent_type}_system",
-            user=f"user:{user_email}",
-            context={"is_a_manager": is_a_manager, "is_on_vacation": is_on_vacation},
-            reason=f"No FGA model for {agent_type} - Okta RBAC only"
+            user=f"user:{user_id}",
+            context={"is_on_vacation": is_on_vacation},
+            reason=f"No FGA model for {agent_type} - Okta RBAC only",
+            contextual_tuples=[],
         )
 
     # Determine which relation to check based on requested scopes
+    # For inventory, we check can_increase_inventory for write operations
     if scopes and "inventory:write" in scopes:
         relation = "can_increase_inventory"
     else:
-        relation = "manager"
+        relation = "can_increase_inventory"  # Same check for read - manager check
 
-    return check_inventory_access_from_claims(
-        user_email=user_email,
-        is_a_manager=is_a_manager,
+    return await check_inventory_access_via_fga(
+        user_id=user_id,
         is_on_vacation=is_on_vacation,
         relation=relation,
     )
@@ -170,33 +261,47 @@ async def check_agent_access(
 
 def is_fga_configured() -> bool:
     """
-    Check if FGA-style checks are enabled.
+    Check if FGA API is configured.
 
-    Since we're using token claims, this is always True
-    as long as the claims are present in the token.
+    Returns True if FGA credentials are set.
     """
-    return True
+    return bool(FGA_STORE_ID and FGA_CLIENT_ID and FGA_CLIENT_SECRET)
 
 
 def get_fga_model_info() -> Dict[str, Any]:
     """Get FGA model information for UI display."""
     return {
-        "mode": "claims-based",
-        "description": "FGA logic evaluated using Okta token claims",
+        "mode": "contextual-tuples",
+        "description": "FGA API check with contextual tuples from Okta claims",
+        "api_url": FGA_API_URL,
+        "store_id": FGA_STORE_ID,
         "model_description": {
             "type": "inventory_system",
             "relations": {
-                "manager": "User with is_a_manager=true AND is_on_vacation=false",
-                "can_increase_inventory": "Derived from manager - can modify inventory"
+                "manager": "Pre-seeded tuple: user has manager role in FGA",
+                "on_vacation": "Contextual tuple: passed dynamically from Okta claim",
+                "can_increase_inventory": "manager but not on_vacation"
             },
-            "condition": {
-                "name": "check_vacation",
-                "description": "Blocks access when is_on_vacation == true",
-                "source": "Okta user profile attribute"
+            "contextual_tuple_logic": {
+                "description": "If is_on_vacation=true, pass on_vacation tuple to FGA",
+                "tuple_format": {
+                    "user": "user:{userId}",
+                    "relation": "on_vacation",
+                    "object": "inventory_system:main_db"
+                }
             }
         },
         "claims_used": [
-            {"name": "Manager", "okta_attribute": "user.is_a_manager"},
-            {"name": "Vacation", "okta_attribute": "user.is_on_vacation"},
+            {"name": "sub", "description": "User ID for FGA user identifier"},
+            {"name": "Vacation", "okta_attribute": "user.is_on_vacation", "description": "Passed as contextual tuple"},
         ]
     }
+
+
+async def close_fga_client():
+    """Close the FGA client connection."""
+    global _fga_client
+    if _fga_client is not None:
+        await _fga_client.close()
+        _fga_client = None
+        logger.info("FGA client closed")

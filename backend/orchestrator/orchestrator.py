@@ -314,35 +314,37 @@ Return ONLY the JSON object, no other text."""
         Filters out agents the user cannot invoke based on fine-grained rules.
 
         This is the "Okta + FGA Better Together" integration point:
-        - Reads user attributes from Okta token claims (is_a_manager, is_on_vacation)
-        - Evaluates FGA model logic using these claims
+        - Extracts user_id (sub) and is_on_vacation from Okta token claims
+        - Passes is_on_vacation as contextual tuple to FGA API
+        - FGA checks against pre-seeded manager tuples + contextual vacation status
         - Runs BEFORE Okta token exchange (cheaper, early filtering)
         - If FGA denies, we skip token exchange entirely
 
         Currently checks:
-        - inventory agent -> FGA inventory_system with check_vacation condition
+        - inventory agent -> FGA inventory_system with can_increase_inventory relation
         - all other agents -> pass through (no FGA model yet)
         """
         agents = state["agents_to_invoke"]
-        user_email = self.user_info.get("email", self.user_info.get("sub", ""))
 
-        if not user_email or not agents:
+        # Extract user_id from token's sub claim
+        user_id = self.user_info.get("sub", "")
+        user_email = self.user_info.get("email", user_id)  # For logging/display
+
+        if not user_id or not agents:
             return state
 
         state["agent_flow"].append({
             "step": "fga_check",
-            "action": "Checking fine-grained permissions (Auth0 FGA)",
+            "action": "Checking fine-grained permissions (Auth0 FGA API)",
             "status": "processing"
         })
 
-        # Get user attributes from Okta ID token claims
-        # These claims should be configured on Okta Org Auth Server:
-        # - Manager: user.is_a_manager
-        # - Vacation: user.is_on_vacation
-        is_a_manager = self.user_info.get("is_a_manager", self.user_info.get("Manager", False))
+        # Get vacation status from Okta ID token claims
+        # This will be passed as a contextual tuple to FGA
+        # Claim should be configured on Okta Org Auth Server: Vacation -> user.is_on_vacation
         is_on_vacation = self.user_info.get("is_on_vacation", self.user_info.get("Vacation", False))
 
-        logger.info(f"FGA claims for {user_email}: is_a_manager={is_a_manager}, is_on_vacation={is_on_vacation}")
+        logger.info(f"FGA check for {user_email} (sub={user_id}): is_on_vacation={is_on_vacation}")
 
         # Check each agent against FGA
         allowed_agents = []
@@ -351,12 +353,13 @@ Return ONLY the JSON object, no other text."""
         for agent_type in agents:
             scopes = state["agent_scopes"].get(agent_type, [])
 
-            # Run FGA check using token claims
+            # Run FGA check using FGA API with contextual tuples
+            # - user_id: from token's sub claim
+            # - is_on_vacation: passed as contextual tuple if true
             result: FGACheckResult = await check_agent_access(
-                user_email=user_email,
+                user_id=user_id,
                 agent_type=agent_type,
                 scopes=scopes,
-                is_a_manager=is_a_manager,
                 is_on_vacation=is_on_vacation,
             )
 
@@ -370,6 +373,7 @@ Return ONLY the JSON object, no other text."""
                 "context": result.context,
                 "reason": result.reason,
                 "requested_scopes": scopes,
+                "contextual_tuples": result.contextual_tuples or [],
             }
             fga_checks.append(fga_check_record)
 
@@ -398,7 +402,7 @@ Return ONLY the JSON object, no other text."""
         state["fga_checks"] = fga_checks
 
         denied_count = len(agents) - len(allowed_agents)
-        fga_status = "enabled" if is_fga_configured() else "not configured"
+        fga_status = "API" if is_fga_configured() else "not configured"
 
         state["agent_flow"].append({
             "step": "fga_check",
@@ -406,7 +410,9 @@ Return ONLY the JSON object, no other text."""
             "status": "completed",
             "details": {
                 "vacation_status": is_on_vacation,
+                "user_id": user_id,
                 "user_email": user_email,
+                "contextual_tuples_used": is_on_vacation,  # True if on_vacation tuple was passed
             }
         })
 
