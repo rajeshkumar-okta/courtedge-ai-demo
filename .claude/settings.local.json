@@ -5,7 +5,12 @@
       "Bash(git commit:*)",
       "Bash(ls -la /Users/rajeshkumar/Documents/GitHub/courtedge-ai-demo/.env*)",
       "Bash(ls -la /Users/rajeshkumar/Documents/GitHub/courtedge-ai-demo/packages/progear-sales-agent/.env*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git status:*)",
+      "Bash(python3 -c \"import openfga_sdk; print\\(dir\\(openfga_sdk\\)\\)\")",
+      "Bash(python3 -c \"from openfga_sdk.client.models import *; print\\([x for x in dir\\(\\) if 'Tuple' in x or 'Check' in x]\\)\")",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs"
     ]
   }
 }
