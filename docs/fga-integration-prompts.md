@@ -350,3 +350,70 @@ type inventory_system
 5. [ ] Test: Manager on vacation → Inventory access DENIED (contextual tuple blocks)
 6. [ ] Test: Non-manager (no FGA tuple) → Inventory access DENIED
 7. [ ] Verify FGA panel shows contextual tuples in UI
+
+---
+
+## Prompt 13: Fix Render Deployment Error
+
+**Error on Render.com deployment:**
+```
+ImportError: cannot import name 'ClientTupleKey' from 'openfga_sdk.client.models'
+```
+
+**Root Cause**: Wrong class name for contextual tuples in OpenFGA SDK 0.9.7.
+
+**Fix**:
+```python
+# Wrong:
+from openfga_sdk.client.models import ClientCheckRequest, ClientTupleKey
+
+# Correct:
+from openfga_sdk.client.models import ClientCheckRequest, ClientTuple
+```
+
+**Commit**: `4fe9b54 fix: use ClientTuple instead of ClientTupleKey for OpenFGA SDK`
+
+---
+
+## OpenFGA SDK Quick Reference (openfga-sdk 0.9.7)
+
+```python
+from openfga_sdk import ClientConfiguration, OpenFgaClient
+from openfga_sdk.client.models import ClientCheckRequest, ClientTuple
+
+# Initialize client
+configuration = ClientConfiguration(
+    api_url=FGA_API_URL,
+    store_id=FGA_STORE_ID,
+    authorization_model_id=FGA_MODEL_ID,
+    credentials={
+        "method": "client_credentials",
+        "config": {
+            "client_id": FGA_CLIENT_ID,
+            "client_secret": FGA_CLIENT_SECRET,
+            "api_issuer": FGA_API_TOKEN_ISSUER,
+            "api_audience": FGA_API_AUDIENCE,
+        }
+    }
+)
+fga_client = OpenFgaClient(configuration)
+
+# Build contextual tuples
+contextual_tuples = [
+    ClientTuple(
+        user="user:123",
+        relation="on_vacation",
+        object="inventory_system:main_db"
+    )
+]
+
+# Check request
+check_request = ClientCheckRequest(
+    user="user:123",
+    relation="can_increase_inventory",
+    object="inventory_system:main_db",
+    contextual_tuples=contextual_tuples,
+)
+response = await fga_client.check(check_request)
+allowed = response.allowed
+```
