@@ -30,7 +30,7 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
 from openfga_sdk import ClientConfiguration, OpenFgaClient
-from openfga_sdk.client.models import ClientCheckRequest, ClientTupleKey
+from openfga_sdk.client.models import ClientCheckRequest, ClientTuple
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ async def check_inventory_access_via_fga(
     contextual_tuples = []
     if is_on_vacation:
         contextual_tuples.append(
-            ClientTupleKey(
+            ClientTuple(
                 user=fga_user,
                 relation="on_vacation",
                 object=fga_object
