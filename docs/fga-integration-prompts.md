@@ -218,3 +218,135 @@ On **Org Authorization Server** (ID Token):
 5. [ ] Test: Manager on vacation → Inventory access DENIED
 6. [ ] Test: Non-manager → Inventory access DENIED
 7. [ ] Verify FGA panel shows decision reason in UI
+
+---
+
+# Session 2: FGA API with Contextual Tuples (April 15, 2026)
+
+## Goal
+
+Switch from claims-based local FGA evaluation to real FGA API calls with contextual tuples.
+
+---
+
+## Prompt 10: Update FGA to Use Contextual Tuples
+
+```
+Hey can you update the FGA implementation we did yesterday to check the token in this format:
+const { sub: userId, is_on_vacation } = req.user; 
+const resourceId = "main_db";
+
+const contextualTuples = [];
+if (is_on_vacation === true) {
+  contextualTuples.push({
+    user: `user:${userId}`,
+    relation: 'on_vacation',
+    object: `inventory_system:${resourceId}`
+  });
+}
+
+const { allowed } = await fgaClient.check({
+  tuple_key: {
+    user: `user:${userId}`,
+    relation: 'can_increase_inventory',
+    object: `inventory_system:${resourceId}`
+  },
+  contextual_tuples: contextualTuples 
+});
+```
+
+**Action**: Analyzed current implementation and proposed changes.
+
+**Question**: Does FGA model have pre-seeded manager tuples (Option A) or need both claims as contextual tuples (Option B)?
+
+```
+use option A and make the changes and wait for my instruction to commit to github
+```
+
+---
+
+## Prompt 11: Implementation
+
+**Changes Made**:
+
+### `backend/auth/fga_client.py` (Rewritten)
+- Added FGA SDK client initialization with OAuth2 credentials
+- New `_get_fga_client()` singleton function
+- New `check_inventory_access_via_fga()` - calls FGA API with contextual tuples
+- Updated `check_agent_access()` to use `user_id` (sub) instead of `user_email`
+- Removed `is_a_manager` parameter - now relies on pre-seeded FGA tuples
+
+### `backend/orchestrator/orchestrator.py` (Updated)
+- Extract `user_id` from token's `sub` claim
+- Only read `is_on_vacation` claim (removed `is_a_manager`)
+- Pass `is_on_vacation` as contextual tuple to FGA
+
+---
+
+## Prompt 12: Commit
+
+```
+commit
+```
+
+**Commit**: `04a59a1 FGA API with contextual tuples`
+
+---
+
+## Key Implementation Decision
+
+### Contextual Tuples Approach
+
+**Previous (Claims-Based)**:
+- Read `is_a_manager` and `is_on_vacation` from Okta token
+- Evaluate FGA logic locally in Python
+- No FGA API calls
+
+**New (FGA API + Contextual Tuples)**:
+- Manager status: Pre-seeded in FGA store (`user:{userId} manager inventory_system:main_db`)
+- Vacation status: Read from Okta claim, passed as contextual tuple
+- Real FGA API check with contextual tuples
+
+### FGA Check Format
+
+```json
+{
+  "tuple_key": {
+    "user": "user:{userId}",
+    "relation": "can_increase_inventory",
+    "object": "inventory_system:main_db"
+  },
+  "contextual_tuples": {
+    "tuple_keys": [
+      {
+        "user": "user:{userId}",
+        "relation": "on_vacation", 
+        "object": "inventory_system:main_db"
+      }
+    ]
+  }
+}
+```
+
+### FGA Model Required
+
+```
+type user
+type inventory_system
+  relations
+    define manager: [user]
+    define on_vacation: [user]
+    define can_increase_inventory: manager but not on_vacation
+```
+
+---
+
+## Updated Testing Checklist
+
+1. [ ] Ensure FGA credentials are set (`FGA_CLIENT_ID`, `FGA_CLIENT_SECRET`, `FGA_STORE_ID`)
+2. [ ] Pre-seed manager tuple in FGA: `user:{sub} manager inventory_system:main_db`
+3. [ ] Ensure Okta claim `Vacation` (`user.is_on_vacation`) is on Org Auth Server
+4. [ ] Test: Manager not on vacation → Inventory access ALLOWED
+5. [ ] Test: Manager on vacation → Inventory access DENIED (contextual tuple blocks)
+6. [ ] Test: Non-manager (no FGA tuple) → Inventory access DENIED
+7. [ ] Verify FGA panel shows contextual tuples in UI
