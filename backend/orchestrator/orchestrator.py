@@ -326,11 +326,10 @@ Return ONLY the JSON object, no other text."""
         """
         agents = state["agents_to_invoke"]
 
-        # Extract user_id from token's sub claim
-        user_id = self.user_info.get("sub", "")
-        user_email = self.user_info.get("email", user_id)  # For logging/display
+        # Extract user email for FGA checks (more human-readable than sub)
+        user_email = self.user_info.get("email", "")
 
-        if not user_id or not agents:
+        if not user_email or not agents:
             return state
 
         state["agent_flow"].append({
@@ -344,7 +343,7 @@ Return ONLY the JSON object, no other text."""
         # Claim should be configured on Okta Org Auth Server: Vacation -> user.is_on_vacation
         is_on_vacation = self.user_info.get("is_on_vacation", self.user_info.get("Vacation", False))
 
-        logger.info(f"FGA check for {user_email} (sub={user_id}): is_on_vacation={is_on_vacation}")
+        logger.info(f"FGA check for {user_email}: is_on_vacation={is_on_vacation}")
 
         # Check each agent against FGA
         allowed_agents = []
@@ -354,10 +353,10 @@ Return ONLY the JSON object, no other text."""
             scopes = state["agent_scopes"].get(agent_type, [])
 
             # Run FGA check using FGA API with contextual tuples
-            # - user_id: from token's sub claim
+            # - user_email: from token's email claim (human-readable)
             # - is_on_vacation: passed as contextual tuple if true
             result: FGACheckResult = await check_agent_access(
-                user_id=user_id,
+                user_email=user_email,
                 agent_type=agent_type,
                 scopes=scopes,
                 is_on_vacation=is_on_vacation,
@@ -410,7 +409,6 @@ Return ONLY the JSON object, no other text."""
             "status": "completed",
             "details": {
                 "vacation_status": is_on_vacation,
-                "user_id": user_id,
                 "user_email": user_email,
                 "contextual_tuples_used": is_on_vacation,  # True if on_vacation tuple was passed
             }

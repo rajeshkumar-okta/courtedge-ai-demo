@@ -104,7 +104,7 @@ def _get_fga_client() -> Optional[OpenFgaClient]:
 
 
 async def check_inventory_access_via_fga(
-    user_id: str,
+    user_email: str,
     is_on_vacation: bool,
     resource_id: str = "main_db",
     relation: str = "can_increase_inventory",
@@ -113,7 +113,7 @@ async def check_inventory_access_via_fga(
     Check inventory access using FGA API with contextual tuples.
 
     Args:
-        user_id: User identifier from token `sub` claim
+        user_email: User's email/login from Okta (e.g., bob.manager@atko.email)
         is_on_vacation: From Okta 'Vacation' claim (user.is_on_vacation)
         resource_id: The inventory resource ID (default: main_db)
         relation: FGA relation to check (default: can_increase_inventory)
@@ -121,7 +121,7 @@ async def check_inventory_access_via_fga(
     Returns:
         FGACheckResult with allowed status and explanation
     """
-    fga_user = f"user:{user_id}"
+    fga_user = f"user:{user_email}"
     fga_object = f"inventory_system:{resource_id}"
 
     # Build contextual tuples - only add on_vacation if user is on vacation
@@ -171,12 +171,12 @@ async def check_inventory_access_via_fga(
 
         # Build human-readable reason
         if allowed:
-            reason = f"Access granted: {user_id} has {relation} on {fga_object}"
+            reason = f"Access granted: {user_email} has {relation} on {fga_object}"
         else:
             if is_on_vacation:
-                reason = f"Access denied: {user_id} is on vacation (on_vacation tuple blocked access)"
+                reason = f"Access denied: {user_email} is on vacation (on_vacation tuple blocked access)"
             else:
-                reason = f"Access denied: {user_id} does not have {relation} on {fga_object} (not a manager in FGA)"
+                reason = f"Access denied: {user_email} does not have {relation} on {fga_object} (not a manager in FGA)"
 
         logger.info(
             f"FGA API check: {fga_user} {relation} {fga_object} "
@@ -209,7 +209,7 @@ async def check_inventory_access_via_fga(
 
 
 async def check_agent_access(
-    user_id: str,
+    user_email: str,
     agent_type: str,
     scopes: list = None,
     is_on_vacation: bool = False,
@@ -225,7 +225,7 @@ async def check_agent_access(
     - Read scopes -> checks "can_increase_inventory" (same check, manager must not be on vacation)
 
     Args:
-        user_id: User's sub claim from token (e.g., "00u123abc")
+        user_email: User's email/login from Okta (e.g., "bob.manager@atko.email")
         agent_type: Agent type (sales, inventory, customer, pricing)
         scopes: Requested scopes (used to determine relation check)
         is_on_vacation: From Okta token claim (passed as contextual tuple)
@@ -241,7 +241,7 @@ async def check_agent_access(
             allowed=True,
             relation="n/a",
             object=f"{agent_type}_system",
-            user=f"user:{user_id}",
+            user=f"user:{user_email}",
             context={"is_on_vacation": is_on_vacation},
             reason=f"No FGA model for {agent_type} - Okta RBAC only",
             contextual_tuples=[],
@@ -255,7 +255,7 @@ async def check_agent_access(
         relation = "can_increase_inventory"  # Same check for read - manager check
 
     return await check_inventory_access_via_fga(
-        user_id=user_id,
+        user_email=user_email,
         is_on_vacation=is_on_vacation,
         relation=relation,
     )

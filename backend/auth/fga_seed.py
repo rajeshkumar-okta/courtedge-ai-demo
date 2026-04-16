@@ -1,13 +1,20 @@
 """
 Seed FGA store with initial relationship tuples for the ProGear demo.
 
-Run once: python -m auth.fga_seed
+Run: python -m auth.fga_seed
 
-Assigns users as managers of the inventory_system.
-The check_vacation condition is evaluated at check time (not seed time).
+This seeds `manager` tuples for inventory_system. The vacation check
+uses contextual tuples passed at check time from Okta claims.
 
-NOTE: This script is for documentation and re-seeding purposes.
-The tuples may already exist in the FGA store (01KNSR7472HW2PAYFR224NAPCY).
+FGA Model:
+  type inventory_system
+    relations
+      define manager: [user]
+      define on_vacation: [user]
+      define can_increase_inventory: manager but not on_vacation
+
+Tuple format uses Okta email/login (not UID) for readability:
+  user:bob.manager@atko.email  manager  inventory_system:main_db
 """
 
 import asyncio
@@ -16,11 +23,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Define manager users by their Okta email/login
+# Add users here who should have inventory manager access
+INVENTORY_MANAGERS = [
+    "bob.manager@atko.email",      # Bob - warehouse manager
+    "mike.manager@atko.email",     # Mike - warehouse manager (may be on vacation)
+    # Add more managers as needed:
+    # "jane.warehouse@atko.email",
+]
+
 
 async def seed():
-    """Seed FGA store with relationship tuples."""
+    """Seed FGA store with manager relationship tuples."""
     try:
-        from openfga_sdk import ClientConfiguration, OpenFgaClient, RelationshipCondition
+        from openfga_sdk import ClientConfiguration, OpenFgaClient
         from openfga_sdk.credentials import Credentials, CredentialConfiguration
         from openfga_sdk.client.models import ClientTuple, ClientWriteRequest
     except ImportError:
@@ -53,79 +69,60 @@ async def seed():
     )
 
     async with OpenFgaClient(configuration) as fga:
-        # Define relationship tuples
-        # User IDs use email format (matching FGA store convention)
-        # The check_vacation condition context is stored ON the tuple
+        # Build manager tuples from the list
+        # No conditions - vacation is checked via contextual tuples at runtime
         tuples = [
-            # Warehouse manager - on vacation (will be DENIED inventory:write)
             ClientTuple(
-                user="user:mike.manager@atko.email",
+                user=f"user:{email}",
                 relation="manager",
                 object="inventory_system:main_db",
-                condition=RelationshipCondition(
-                    name="check_vacation",
-                    context=dict(is_on_vacation=True),  # Mike is on vacation
-                ),
-            ),
-
-            # Example: Another warehouse user NOT on vacation (would be ALLOWED)
-            # Uncomment to add:
-            # ClientTuple(
-            #     user="user:jane.warehouse@atko.email",
-            #     relation="manager",
-            #     object="inventory_system:main_db",
-            #     condition=RelationshipCondition(
-            #         name="check_vacation",
-            #         context=dict(is_on_vacation=False),
-            #     ),
-            # ),
+            )
+            for email in INVENTORY_MANAGERS
         ]
+
+        print(f"Seeding {len(tuples)} manager tuples...")
+        for t in tuples:
+            print(f"  - {t.user} -> {t.relation} -> {t.object}")
 
         try:
             body = ClientWriteRequest(writes=tuples)
             await fga.write(body)
-            print(f"SUCCESS: Seeded {len(tuples)} FGA tuples")
-            for t in tuples:
-                ctx = t.condition.context if t.condition else {}
-                print(f"  - {t.user} -> {t.relation} -> {t.object} (context: {ctx})")
+            print(f"\nSUCCESS: Seeded {len(tuples)} FGA tuples")
         except Exception as e:
             if "cannot write a tuple which already exists" in str(e).lower():
-                print("INFO: Tuples already exist in FGA store (this is fine)")
+                print("\nINFO: Some tuples already exist in FGA store (this is fine)")
             else:
-                print(f"ERROR: Failed to write tuples: {e}")
+                print(f"\nERROR: Failed to write tuples: {e}")
 
 
 async def verify():
     """Verify FGA checks work as expected."""
-    from auth.fga_client import check_inventory_access
+    from auth.fga_client import check_inventory_access_via_fga
 
     print("\n--- Verification Checks ---")
 
     # Test 1: Manager not on vacation -> should be ALLOWED
-    result = await check_inventory_access(
-        user_email="mike.manager@atko.email",
-        relation="manager",
-        is_on_vacation=False
+    result = await check_inventory_access_via_fga(
+        user_email="bob.manager@atko.email",
+        is_on_vacation=False,
     )
-    print(f"Manager (not on vacation): allowed={result.allowed}")
+    print(f"bob.manager (not on vacation): allowed={result.allowed}")
     print(f"  Reason: {result.reason}")
 
     # Test 2: Manager on vacation -> should be DENIED
-    result = await check_inventory_access(
-        user_email="mike.manager@atko.email",
-        relation="manager",
-        is_on_vacation=True
+    result = await check_inventory_access_via_fga(
+        user_email="bob.manager@atko.email",
+        is_on_vacation=True,
     )
-    print(f"Manager (on vacation): allowed={result.allowed}")
+    print(f"bob.manager (on vacation): allowed={result.allowed}")
     print(f"  Reason: {result.reason}")
 
-    # Test 3: can_increase_inventory while on vacation -> should be DENIED
-    result = await check_inventory_access(
-        user_email="mike.manager@atko.email",
-        relation="can_increase_inventory",
-        is_on_vacation=True
+    # Test 3: Non-manager -> should be DENIED
+    result = await check_inventory_access_via_fga(
+        user_email="sales.user@atko.email",
+        is_on_vacation=False,
     )
-    print(f"can_increase_inventory (on vacation): allowed={result.allowed}")
+    print(f"sales.user (not a manager): allowed={result.allowed}")
     print(f"  Reason: {result.reason}")
 
 
