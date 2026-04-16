@@ -14,6 +14,7 @@ group membership, with clear success/denied visualization.
 """
 
 import os
+import re
 from typing import Dict, Any, List, Optional, TypedDict
 from langgraph.graph import StateGraph, END
 import anthropic
@@ -584,19 +585,21 @@ Return ONLY the JSON object, no other text."""
         2. Have the agent LLM process with tool results
         3. Return agent's response
 
-        For now, returns simulated responses based on agent type.
+        For now, returns simulated responses based on agent type and scopes.
         """
+        scopes = exchange_result.get("scopes", [])
+
         # Get agent-specific data (will be replaced with MCP calls)
-        data = self._get_demo_data(agent_type, message)
+        data = self._get_demo_data(agent_type, message, scopes)
 
         agent_name = exchange_result["agent_info"]["name"]
-        scopes = exchange_result.get("scopes", [])
 
         return f"[{agent_name}]\n{data}\n(Scopes: {', '.join(scopes)})"
 
-    def _get_demo_data(self, agent_type: str, message: str) -> str:
-        """Get demo data for an agent based on message context."""
+    def _get_demo_data(self, agent_type: str, message: str, scopes: List[str] = None) -> str:
+        """Get demo data for an agent based on message context and scopes."""
         message_lower = message.lower()
+        scopes = scopes or []
 
         if agent_type == AGENT_SALES:
             if "order" in message_lower or "recent" in message_lower:
@@ -616,6 +619,27 @@ Return ONLY the JSON object, no other text."""
             )
 
         elif agent_type == AGENT_INVENTORY:
+            # Check if this is a WRITE operation (user has inventory:write scope)
+            has_write_scope = "inventory:write" in scopes
+            is_write_request = any(kw in message_lower for kw in ["add", "update", "increase", "set", "put", "remove", "decrease"])
+
+            if has_write_scope and is_write_request:
+                # Extract quantity from message (simple pattern matching)
+                qty_match = re.search(r'(\d+)\s*(basket|ball|unit)', message_lower)
+                quantity = qty_match.group(1) if qty_match else "30"
+
+                return (
+                    f"INVENTORY UPDATE SUCCESSFUL:\n"
+                    f"- Action: Added {quantity} basketballs to inventory\n"
+                    f"- Product: Pro Game Basketball (default SKU)\n"
+                    f"- Previous count: 2,847 units\n"
+                    f"- New count: {int(quantity) + 2847} units\n"
+                    f"- Status: CONFIRMED\n"
+                    f"- Transaction ID: INV-2026-{hash(message) % 10000:04d}\n"
+                    f"Total basketballs now: {12219 + int(quantity)} units"
+                )
+
+            # Read-only inventory data
             if "basketball" in message_lower:
                 return (
                     "Basketball Inventory:\n"
