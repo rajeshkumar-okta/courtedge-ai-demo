@@ -191,6 +191,10 @@ async def chat(
             logger.info(f"Vacation claim (raw): {user_claims.get('Vacation')} | is_on_vacation: {user_claims.get('is_on_vacation')}")
             logger.info(f"Resolved is_on_vacation: {is_on_vacation}")
             logger.info(f"All claims keys: {list(user_claims.keys())}")
+            # Full claims for debugging
+            import json
+            logger.info(f"=== FULL ID TOKEN CLAIMS (DEBUG) ===")
+            logger.info(json.dumps(user_claims, indent=2, default=str))
         except Exception as e:
             logger.warning(f"Token validation failed: {e}")
             user_info = {"email": "anonymous", "groups": []}

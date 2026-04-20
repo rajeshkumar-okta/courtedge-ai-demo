@@ -150,6 +150,9 @@ class MultiAgentTokenExchange:
                 logger.info(f"Scopes: {id_jag_claims.get('scp', id_jag_claims.get('scope', []))}")
                 logger.info(f"Vacation claim in ID-JAG: {id_jag_claims.get('Vacation', id_jag_claims.get('is_on_vacation', 'NOT PRESENT'))}")
                 logger.info(f"All ID-JAG claim keys: {list(id_jag_claims.keys())}")
+                # Full claims for debugging
+                logger.info(f"=== FULL ID-JAG TOKEN CLAIMS [{agent_type}] (DEBUG) ===")
+                logger.info(json.dumps(id_jag_claims, indent=2, default=str))
             except Exception as decode_err:
                 logger.warning(f"[{agent_type}] Could not decode ID-JAG token: {decode_err}")
 
@@ -176,6 +179,9 @@ class MultiAgentTokenExchange:
                 logger.info(f"Subject (sub): {auth_token_claims.get('sub')}")
                 logger.info(f"Scopes: {auth_token_claims.get('scp', auth_token_claims.get('scope', []))}")
                 logger.info(f"All Auth Token claim keys: {list(auth_token_claims.keys())}")
+                # Full claims for debugging
+                logger.info(f"=== FULL AUTH SERVER TOKEN CLAIMS [{agent_type}] (DEBUG) ===")
+                logger.info(json.dumps(auth_token_claims, indent=2, default=str))
             except Exception as decode_err:
                 logger.warning(f"[{agent_type}] Could not decode Auth Server token: {decode_err}")
 
