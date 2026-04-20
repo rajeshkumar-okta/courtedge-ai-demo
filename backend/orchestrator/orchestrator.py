@@ -177,17 +177,19 @@ class Orchestrator:
 
         # Add nodes
         workflow.add_node("router", self._router_node)
-        workflow.add_node("fga_check", self._fga_check_node)  # FGA gatekeeper
         workflow.add_node("exchange_tokens", self._exchange_tokens_node)
+        workflow.add_node("fga_check", self._fga_check_node)  # FGA gatekeeper
         workflow.add_node("process_agents", self._process_agents_node)
         workflow.add_node("generate_response", self._generate_response_node)
 
-        # Linear flow: router -> fga_check -> exchange -> process -> response
-        # FGA runs BEFORE token exchange (cheaper, filters early)
+        # Linear flow: router -> exchange -> fga_check -> process -> response
+        # Token exchange runs FIRST so we can extract Vacation claim from Auth Server token
+        # (Org Auth Server doesn't support custom claims, but custom Auth Servers do)
+        # FGA check uses Vacation claim from Auth Server token to build contextual tuples
         workflow.set_entry_point("router")
-        workflow.add_edge("router", "fga_check")
-        workflow.add_edge("fga_check", "exchange_tokens")
-        workflow.add_edge("exchange_tokens", "process_agents")
+        workflow.add_edge("router", "exchange_tokens")
+        workflow.add_edge("exchange_tokens", "fga_check")
+        workflow.add_edge("fga_check", "process_agents")
         workflow.add_edge("process_agents", "generate_response")
         workflow.add_edge("generate_response", END)
 
@@ -311,21 +313,22 @@ Return ONLY the JSON object, no other text."""
 
     async def _fga_check_node(self, state: WorkflowState) -> WorkflowState:
         """
-        Check FGA permissions before token exchange.
+        Check FGA permissions AFTER token exchange.
         Filters out agents the user cannot invoke based on fine-grained rules.
 
         This is the "Okta + FGA Better Together" integration point:
-        - Extracts user_id (sub) and is_on_vacation from Okta token claims
+        - Extracts Vacation claim from Auth Server token (not ID token)
+        - Org Auth Server doesn't support custom claims, but custom Auth Servers do
         - Passes is_on_vacation as contextual tuple to FGA API
         - FGA checks against pre-seeded manager tuples + contextual vacation status
-        - Runs BEFORE Okta token exchange (cheaper, early filtering)
-        - If FGA denies, we skip token exchange entirely
+        - If FGA denies, marks the token exchange result as denied
 
         Currently checks:
         - inventory agent -> FGA inventory_system with can_increase_inventory relation
         - all other agents -> pass through (no FGA model yet)
         """
         agents = state["agents_to_invoke"]
+        agent_results = state.get("agent_results", {})
 
         # Extract user email for FGA checks (more human-readable than sub)
         user_email = self.user_info.get("email", "")
@@ -339,10 +342,28 @@ Return ONLY the JSON object, no other text."""
             "status": "processing"
         })
 
-        # Get vacation status from Okta ID token claims
-        # This will be passed as a contextual tuple to FGA
-        # Claim should be configured on Okta Org Auth Server: Vacation -> user.is_on_vacation
-        is_on_vacation = self.user_info.get("is_on_vacation", self.user_info.get("Vacation", False))
+        # Get vacation status from Auth Server token (since Org Auth Server doesn't support custom claims)
+        # We extract it from the inventory agent's token exchange result
+        is_on_vacation = False
+
+        # Try to get Vacation claim from inventory Auth Server token
+        inventory_result = agent_results.get(AGENT_INVENTORY, {})
+        if inventory_result.get("success") and inventory_result.get("access_token"):
+            try:
+                from jose import jwt as jose_jwt
+                auth_token_claims = jose_jwt.get_unverified_claims(inventory_result["access_token"])
+                # Check for Vacation claim in Auth Server token
+                vacation_claim = auth_token_claims.get("Vacation", auth_token_claims.get("is_on_vacation"))
+                if vacation_claim is not None:
+                    is_on_vacation = bool(vacation_claim)
+                    logger.info(f"Extracted Vacation claim from Auth Server token: {vacation_claim}")
+                logger.info(f"Auth Server token claims for FGA: {list(auth_token_claims.keys())}")
+            except Exception as e:
+                logger.warning(f"Could not extract Vacation claim from Auth Server token: {e}")
+
+        # Fallback to ID token claim (in case it's configured there)
+        if not is_on_vacation:
+            is_on_vacation = self.user_info.get("is_on_vacation", self.user_info.get("Vacation", False))
 
         logger.info(f"FGA check for {user_email}: is_on_vacation={is_on_vacation}")
 
@@ -380,23 +401,38 @@ Return ONLY the JSON object, no other text."""
             if result.allowed:
                 allowed_agents.append(agent_type)
             else:
-                # Record as denied in token_exchanges for UI visibility
-                config = get_agent_config(agent_type)
-                demo = DEMO_AGENTS.get(agent_type, {})
+                # FGA denied - update the existing token_exchange record to show denial
+                # Token was already exchanged, but FGA blocks the action
+                for tx in state["token_exchanges"]:
+                    if tx.get("agent") == agent_type:
+                        tx["success"] = False
+                        tx["access_denied"] = True
+                        tx["status"] = "denied"
+                        tx["error"] = f"FGA: {result.reason}"
+                        tx["fga_denied"] = True  # Flag for UI to show FGA-specific styling
+                        break
+                else:
+                    # Fallback: add new record if not found (shouldn't happen)
+                    config = get_agent_config(agent_type)
+                    demo = DEMO_AGENTS.get(agent_type, {})
+                    state["token_exchanges"].append({
+                        "agent": agent_type,
+                        "agent_name": config.name if config else demo.get("name", ""),
+                        "color": config.color if config else demo.get("color", "#888"),
+                        "success": False,
+                        "access_denied": True,
+                        "status": "denied",
+                        "scopes": [],
+                        "requested_scopes": scopes,
+                        "error": f"FGA: {result.reason}",
+                        "demo_mode": False,
+                        "fga_denied": True,
+                    })
 
-                state["token_exchanges"].append({
-                    "agent": agent_type,
-                    "agent_name": config.name if config else demo.get("name", ""),
-                    "color": config.color if config else demo.get("color", "#888"),
-                    "success": False,
-                    "access_denied": True,
-                    "status": "denied",
-                    "scopes": [],
-                    "requested_scopes": scopes,
-                    "error": f"FGA: {result.reason}",
-                    "demo_mode": False,
-                    "fga_denied": True,  # Flag for UI to show FGA-specific styling
-                })
+                # Mark agent result as denied so process_agents skips it
+                if agent_type in agent_results:
+                    agent_results[agent_type]["access_denied"] = True
+                    agent_results[agent_type]["success"] = False
 
         state["agents_to_invoke"] = allowed_agents
         state["fga_checks"] = fga_checks
