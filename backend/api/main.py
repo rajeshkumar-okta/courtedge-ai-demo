@@ -159,13 +159,27 @@ async def chat(
     if user_token:
         try:
             user_claims = await okta_auth.validate_token(user_token)
+
+            # Extract vacation claim from Okta ID token
+            # Claim name in Okta: "Vacation" (maps to user.is_on_vacation)
+            is_on_vacation = user_claims.get("Vacation", user_claims.get("is_on_vacation", False))
+
             user_info = {
                 "sub": user_claims.get("sub"),
                 "email": user_claims.get("email"),
                 "name": user_claims.get("name"),
                 "groups": user_claims.get("groups", []),
+                "is_on_vacation": is_on_vacation,
             }
-            logger.info(f"User authenticated: {user_info.get('email')}")
+
+            # Log ID token claims for debugging (deployed on Render)
+            logger.info(f"=== ID Token Claims ===")
+            logger.info(f"User: {user_info.get('email')}")
+            logger.info(f"Subject (sub): {user_claims.get('sub')}")
+            logger.info(f"Groups: {user_claims.get('groups', [])}")
+            logger.info(f"Vacation claim (raw): {user_claims.get('Vacation')} | is_on_vacation: {user_claims.get('is_on_vacation')}")
+            logger.info(f"Resolved is_on_vacation: {is_on_vacation}")
+            logger.info(f"All claims keys: {list(user_claims.keys())}")
         except Exception as e:
             logger.warning(f"Token validation failed: {e}")
             user_info = {"email": "anonymous", "groups": []}
