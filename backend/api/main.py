@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 
 from auth.okta_auth import get_okta_auth
 from auth.agent_config import get_all_agent_configs, DEMO_AGENTS
+from auth.fga_client import close_fga_client
 from orchestrator.orchestrator import Orchestrator
 
 # Load environment variables
@@ -45,6 +46,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- Lifecycle Events ---
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on application shutdown."""
+    logger.info("Shutting down - closing FGA client...")
+    await close_fga_client()
+    logger.info("FGA client closed")
 
 
 # --- Request/Response Models ---
