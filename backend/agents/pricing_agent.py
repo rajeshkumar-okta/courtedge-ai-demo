@@ -3,10 +3,12 @@ Pricing Agent - Handles pricing, discounts, and margins.
 
 Registered as a first-class identity in Okta.
 Uses raw Anthropic SDK for LLM calls.
+Uses demo_store for pricing data.
 """
 
 from typing import Dict, Any, Optional
 from .base_agent import BaseAgent
+from data.demo_store import demo_store
 
 
 class PricingAgent(BaseAgent):
@@ -53,44 +55,86 @@ You are operating with Okta AI Agent governance:
 Always show pricing calculations clearly."""
 
     async def process(self, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Process a pricing-related task with demo data."""
+        """Process a pricing-related task with real data."""
         context = context or {}
 
-        # Get demo data based on task
-        demo_data = self._get_demo_data(task)
+        # Get data from demo_store
+        data = self._get_data(task)
 
-        # Augment the task with demo data
+        # Augment the task with data
         augmented_task = f"""{task}
 
 Available pricing data:
-{demo_data}
+{data}
 
 Provide a helpful response using this data."""
 
         return await super().process(augmented_task, context)
 
-    def _get_demo_data(self, task: str) -> str:
-        """Get demo data based on the task."""
+    def _get_data(self, task: str) -> str:
+        """Get pricing data from demo_store."""
         task_lower = task.lower()
 
         if "basketball" in task_lower or "margin" in task_lower:
-            return """Basketball Pricing:
-- Pro Game: $149.99 (cost $62, margin 58.7%)
-- Pro Composite: $89.99 (cost $38, margin 57.8%)
-- Women's Official: $129.99 (cost $55, margin 57.7%)
-- Youth Size 5: $34.99 (cost $14, margin 60.0%)
-Average basketball margin: 58.8%"""
+            # Get basketball pricing
+            basketball_pricing = demo_store.get_pricing_by_category("Basketballs")
+            if basketball_pricing:
+                lines = ["Basketball Pricing:\n"]
+                total_margin = 0
+                for item in basketball_pricing[:6]:
+                    lines.append(f"- {item['name']}: ${item['price']:.2f} (cost ${item['cost']:.2f}, margin {item['margin']}%)")
+                    total_margin += item['margin']
+
+                avg_margin = total_margin / len(basketball_pricing[:6])
+                lines.append(f"\nAverage basketball margin: {avg_margin:.1f}%")
+                return "\n".join(lines)
 
         if "bulk" in task_lower or "discount" in task_lower:
-            return """Bulk Discounts:
-- 10+ units: 5% | 50+ units: 10%
-- 100+ units: 15% | 500+ units: 20%
-Customer Tier Bonuses:
-- Platinum: +5% | Gold: +3%
-Example: 1,500 units @ Platinum = 25% total discount"""
+            discounts = demo_store.get_discount_structure()
+            volume = discounts.get('volume_discounts', {})
+            tier = discounts.get('tier_discounts', {})
 
-        return """Pricing Overview:
-- Average margin: 58.2% across all products
-- Highest: Youth basketballs (60%)
-- Volume discounts: 5-20% based on quantity
-- Tier discounts: 0-5% based on customer status"""
+            return f"""Bulk Discounts:
+- {', '.join(f'{qty}+ units: {disc}%' for qty, disc in sorted(volume.items(), key=lambda x: int(x[0])))}
+
+Customer Tier Bonuses:
+- {', '.join(f'{t}: {d}%' for t, d in tier.items())}
+
+Example: 1,500 units @ Platinum = {volume.get('500', 20) + tier.get('Platinum', 5)}% total discount"""
+
+        if "hoop" in task_lower:
+            hoop_pricing = demo_store.get_pricing_by_category("Hoops & Backboards")
+            if hoop_pricing:
+                lines = ["Hoops & Backboards Pricing:\n"]
+                for item in hoop_pricing:
+                    lines.append(f"- {item['name']}: ${item['price']:.2f} (margin {item['margin']}%)")
+                return "\n".join(lines)
+
+        # Default: pricing overview
+        all_pricing = demo_store.get_all_pricing()
+        all_inventory = demo_store.get_all_inventory()
+
+        # Calculate average margin by category
+        category_margins = {}
+        for sku, pricing in all_pricing.items():
+            if sku in all_inventory:
+                category = all_inventory[sku].get('category', 'Other')
+                if category not in category_margins:
+                    category_margins[category] = []
+                category_margins[category].append(pricing['margin'])
+
+        lines = ["Pricing Overview:\n"]
+        all_margins = []
+        for category, margins in category_margins.items():
+            avg = sum(margins) / len(margins)
+            all_margins.extend(margins)
+            lines.append(f"- {category}: avg margin {avg:.1f}%")
+
+        overall_avg = sum(all_margins) / len(all_margins) if all_margins else 0
+        lines.append(f"\nOverall Average Margin: {overall_avg:.1f}%")
+
+        discounts = demo_store.get_discount_structure()
+        lines.append(f"\nVolume discounts: 5-20% based on quantity")
+        lines.append(f"Tier discounts: 0-5% based on customer status")
+
+        return "\n".join(lines)
