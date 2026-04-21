@@ -32,6 +32,9 @@ from auth.multi_agent_auth import (
 from auth.agent_config import get_agent_config, DEMO_AGENTS
 from auth.fga_client import check_agent_access, is_fga_configured, FGACheckResult
 
+# Import agent classes
+from agents import SalesAgent, InventoryAgent, PricingAgent, CustomerAgent
+
 logger = logging.getLogger(__name__)
 
 
@@ -616,21 +619,44 @@ Return ONLY the JSON object, no other text."""
         """
         Invoke a specific agent to process the request.
 
-        In full implementation, this would:
-        1. Use the MCP token to call MCP tools
-        2. Have the agent LLM process with tool results
-        3. Return agent's response
-
-        For now, returns simulated responses based on agent type and scopes.
+        Uses the actual agent classes (SalesAgent, InventoryAgent, etc.)
+        which use raw Anthropic SDK for LLM calls.
         """
         scopes = exchange_result.get("scopes", [])
-
-        # Get agent-specific data (will be replaced with MCP calls)
-        data = self._get_demo_data(agent_type, message, scopes)
-
         agent_name = exchange_result["agent_info"]["name"]
 
-        return f"[{agent_name}]\n{data}\n(Scopes: {', '.join(scopes)})"
+        # Map agent type to agent class
+        agent_classes = {
+            AGENT_SALES: SalesAgent,
+            AGENT_INVENTORY: InventoryAgent,
+            AGENT_CUSTOMER: CustomerAgent,
+            AGENT_PRICING: PricingAgent,
+        }
+
+        agent_class = agent_classes.get(agent_type)
+        if not agent_class:
+            # Fallback to demo data if agent class not found
+            data = self._get_demo_data(agent_type, message, scopes)
+            return f"[{agent_name}]\n{data}\n(Scopes: {', '.join(scopes)})"
+
+        try:
+            # Instantiate and invoke the agent
+            agent = agent_class(user_token=self.user_token)
+            result = await agent.process(message, context={"scopes": scopes})
+
+            if result.get("success"):
+                return f"[{agent_name}]\n{result['result']}\n(Scopes: {', '.join(scopes)})"
+            else:
+                # Agent LLM call failed, use demo data as fallback
+                logger.warning(f"Agent {agent_type} LLM call failed: {result.get('error')}")
+                data = self._get_demo_data(agent_type, message, scopes)
+                return f"[{agent_name}]\n{data}\n(Scopes: {', '.join(scopes)})"
+
+        except Exception as e:
+            logger.error(f"Error invoking agent {agent_type}: {e}")
+            # Fallback to demo data
+            data = self._get_demo_data(agent_type, message, scopes)
+            return f"[{agent_name}]\n{data}\n(Scopes: {', '.join(scopes)})"
 
     def _get_demo_data(self, agent_type: str, message: str, scopes: List[str] = None) -> str:
         """Get demo data for an agent based on message context and scopes."""
