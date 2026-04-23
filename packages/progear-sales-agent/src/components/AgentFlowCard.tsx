@@ -124,17 +124,24 @@ export default function AgentFlowCard({ steps, isLoading }: Props) {
               const agentStep = steps.find(s => s.step === `${agent}_agent`);
               const status = agentStep?.status || (isInvolved ? 'pending' : 'inactive');
 
+              // Determine background color: red for denied, brand color otherwise
+              const getBackgroundColor = () => {
+                if (status === 'inactive') return undefined;
+                if (status === 'denied') return '#ef4444'; // Red for denied
+                return agentColors[agent]; // Brand color for all other states
+              };
+
               return (
                 <div key={agent} className="flex flex-col items-center">
                   <div
                     className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold transition-all ${
                       status === 'completed' ? 'text-white shadow-lg' :
-                      status === 'denied' ? 'text-white opacity-75' :
+                      status === 'denied' ? 'text-white shadow-lg' :
                       status === 'pending' ? 'text-white animate-pulse' :
                       'bg-gray-200 text-gray-400'
                     }`}
                     style={{
-                      backgroundColor: status !== 'inactive' ? agentColors[agent] : undefined
+                      backgroundColor: getBackgroundColor()
                     }}
                   >
                     {status === 'completed' && <CheckCircle className="w-5 h-5" />}
