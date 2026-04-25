@@ -93,8 +93,10 @@ class TokenExchange(BaseModel):
     scopes: List[str] = []
     error: Optional[str] = None
     demo_mode: bool = False
-    token_claims: Optional[Dict[str, Any]] = None  # Decoded JWT claims for display
-    access_token: Optional[str] = None  # Raw JWT string for display
+    token_claims: Optional[Dict[str, Any]] = None  # Decoded access token claims
+    access_token: Optional[str] = None  # Raw access token JWT
+    id_jag_token: Optional[str] = None  # Raw ID-JAG token (intermediate)
+    id_jag_claims: Optional[Dict[str, Any]] = None  # Decoded ID-JAG claims
 
 
 class AgentFlowStep(BaseModel):

@@ -12,7 +12,9 @@ interface TokenExchange {
   status: string;
   scopes: string[];
   token_claims?: Record<string, any>;
-  access_token?: string;  // Raw JWT string
+  access_token?: string;  // Raw access token JWT
+  id_jag_token?: string;  // Raw ID-JAG token (intermediate)
+  id_jag_claims?: Record<string, any>;  // Decoded ID-JAG claims
 }
 
 interface Props {
@@ -226,11 +228,28 @@ function TokenSection({
 export default function RawTokensCard({ exchanges, idTokenClaims, idTokenRaw }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Filter exchanges that have token data
-  const exchangesWithTokens = exchanges.filter(
-    e => (e.token_claims && Object.keys(e.token_claims).length > 0) || e.access_token
-  );
+  // Filter exchanges that have token data and keep only the latest per agent
+  const latestExchanges = exchanges.reduce((acc, exchange) => {
+    const hasTokenData = (exchange.token_claims && Object.keys(exchange.token_claims).length > 0)
+      || exchange.access_token
+      || exchange.id_jag_token;
+    if (hasTokenData) {
+      acc[exchange.agent] = exchange; // Keep only latest per agent
+    }
+    return acc;
+  }, {} as Record<string, TokenExchange>);
+
+  const exchangesWithTokens = Object.values(latestExchanges);
   const hasAnyTokens = idTokenClaims || idTokenRaw || exchangesWithTokens.length > 0;
+
+  // Count total tokens (ID Token + ID-JAG tokens + Access tokens)
+  const tokenCount = (idTokenClaims || idTokenRaw ? 1 : 0) +
+    exchangesWithTokens.reduce((count, e) => {
+      let c = 0;
+      if (e.id_jag_token || e.id_jag_claims) c++;
+      if (e.access_token || e.token_claims) c++;
+      return count + c;
+    }, 0);
 
   return (
     <div className="bg-white rounded-xl border-2 border-neutral-border shadow-sm overflow-hidden">
@@ -246,7 +265,7 @@ export default function RawTokensCard({ exchanges, idTokenClaims, idTokenRaw }: 
         <div className="flex items-center gap-2">
           {!isExpanded && hasAnyTokens && (
             <span className="text-xs text-gray-400">
-              {((idTokenClaims || idTokenRaw) ? 1 : 0) + exchangesWithTokens.length} token(s)
+              {tokenCount} token(s)
             </span>
           )}
           {isExpanded ? (
@@ -260,24 +279,39 @@ export default function RawTokensCard({ exchanges, idTokenClaims, idTokenRaw }: 
       {/* Expanded Content */}
       {isExpanded && (
         <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
-          {/* ID Token */}
+          {/* ID Token (User's original token) */}
           <TokenSection
-            title="ID Token (User)"
+            title="1. ID Token (User)"
             claims={idTokenClaims}
             rawToken={idTokenRaw}
             defaultOpen={true}
           />
 
-          {/* Agent Tokens */}
+          {/* Agent Token Exchanges - ID-JAG and Access Token for each */}
           {exchangesWithTokens.map((exchange, idx) => (
-            <TokenSection
-              key={idx}
-              title={`${exchange.agent_name} Token`}
-              claims={exchange.token_claims}
-              rawToken={exchange.access_token}
-              color={exchange.color}
-              defaultOpen={false}
-            />
+            <div key={idx} className="space-y-2">
+              {/* ID-JAG Token (intermediate) */}
+              {(exchange.id_jag_token || exchange.id_jag_claims) && (
+                <TokenSection
+                  title={`2. ID-JAG Token → ${exchange.agent_name}`}
+                  claims={exchange.id_jag_claims}
+                  rawToken={exchange.id_jag_token}
+                  color="#6366f1"  // Indigo for ID-JAG
+                  defaultOpen={false}
+                />
+              )}
+
+              {/* Access Token (final) */}
+              {(exchange.access_token || exchange.token_claims) && (
+                <TokenSection
+                  title={`3. Access Token (${exchange.agent_name})`}
+                  claims={exchange.token_claims}
+                  rawToken={exchange.access_token}
+                  color={exchange.color}
+                  defaultOpen={false}
+                />
+              )}
+            </div>
           ))}
 
           {/* No tokens message */}
@@ -286,6 +320,15 @@ export default function RawTokensCard({ exchanges, idTokenClaims, idTokenRaw }: 
               <Key className="w-6 h-6 mx-auto mb-2 opacity-50" />
               <p className="text-sm">No token data available</p>
               <p className="text-xs">Send a message to see token exchanges</p>
+            </div>
+          )}
+
+          {/* Token Flow Legend */}
+          {hasAnyTokens && (
+            <div className="pt-3 border-t border-gray-100">
+              <div className="text-[10px] text-gray-500">
+                <span className="font-semibold">Token Flow:</span> ID Token → ID-JAG Token → Access Token
+              </div>
             </div>
           )}
         </div>
