@@ -185,17 +185,20 @@ async def chat(
                 "is_on_vacation": is_on_vacation,
             }
 
-            # Log ID token claims for debugging (deployed on Render)
-            logger.info(f"=== ID Token Claims ===")
+            # Log ID token for debugging (deployed on Render)
+            logger.info(f"=== ID Token (User) ===")
             logger.info(f"User: {user_info.get('email')}")
             logger.info(f"Subject (sub): {user_claims.get('sub')}")
             logger.info(f"Groups: {user_claims.get('groups', [])}")
             logger.info(f"Vacation claim (raw): {user_claims.get('Vacation')} | is_on_vacation: {user_claims.get('is_on_vacation')}")
             logger.info(f"Resolved is_on_vacation: {is_on_vacation}")
             logger.info(f"All claims keys: {list(user_claims.keys())}")
-            # Full claims for debugging
+            # Raw JWT for debugging
+            logger.info(f"=== RAW ID TOKEN (JWT) ===")
+            logger.info(f"{user_token}")
+            # Full decoded claims for debugging
             import json
-            logger.info(f"=== FULL ID TOKEN CLAIMS (DEBUG) ===")
+            logger.info(f"=== DECODED ID TOKEN CLAIMS ===")
             logger.info(json.dumps(user_claims, indent=2, default=str))
         except Exception as e:
             logger.warning(f"Token validation failed: {e}")

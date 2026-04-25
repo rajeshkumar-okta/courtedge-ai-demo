@@ -176,12 +176,17 @@ class MultiAgentTokenExchange:
             auth_token_claims = {}
             try:
                 auth_token_claims = jwt.get_unverified_claims(token_result.access_token)
-                logger.info(f"=== Auth Server Token Claims [{agent_type}] ===")
+                logger.info(f"=== Agent Access Token [{agent_type.upper()}] ===")
                 logger.info(f"Subject (sub): {auth_token_claims.get('sub')}")
+                logger.info(f"Audience (aud): {auth_token_claims.get('aud')}")
                 logger.info(f"Scopes: {auth_token_claims.get('scp', auth_token_claims.get('scope', []))}")
-                logger.info(f"All Auth Token claim keys: {list(auth_token_claims.keys())}")
-                # Full claims for debugging
-                logger.info(f"=== FULL AUTH SERVER TOKEN CLAIMS [{agent_type}] (DEBUG) ===")
+                logger.info(f"Vacation claim: {auth_token_claims.get('Vacation', 'not present')}")
+                logger.info(f"All claim keys: {list(auth_token_claims.keys())}")
+                # Raw JWT for debugging
+                logger.info(f"=== RAW ACCESS TOKEN [{agent_type.upper()}] (JWT) ===")
+                logger.info(f"{token_result.access_token}")
+                # Full decoded claims for debugging
+                logger.info(f"=== DECODED ACCESS TOKEN CLAIMS [{agent_type.upper()}] ===")
                 logger.info(json.dumps(auth_token_claims, indent=2, default=str))
             except Exception as decode_err:
                 logger.warning(f"[{agent_type}] Could not decode Auth Server token: {decode_err}")
