@@ -47,7 +47,7 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
 from openfga_sdk import ClientConfiguration, OpenFgaClient
-from openfga_sdk.client.models import ClientCheckRequest, ClientTuple, ClientWriteRequest, ClientReadRequest
+from openfga_sdk.client.models import ClientCheckRequest, ClientTuple, ClientWriteRequest
 from openfga_sdk.credentials import Credentials, CredentialConfiguration
 
 logger = logging.getLogger(__name__)
@@ -131,6 +131,8 @@ async def check_manager_tuple_exists(
     """
     Check if manager tuple exists in FGA store for a user.
 
+    Uses FGA check API to verify if the user has the manager relation.
+
     Args:
         user_email: User's email/login from Okta
         resource_id: The inventory resource ID (default: main_db)
@@ -147,18 +149,15 @@ async def check_manager_tuple_exists(
     fga_object = f"inventory_system:{resource_id}"
 
     try:
-        # Use read to check if the specific tuple exists
-        read_request = ClientReadRequest(
-            tuple_key=ClientTuple(
-                user=fga_user,
-                relation="manager",
-                object=fga_object
-            )
+        # Use check API to verify if the manager relation exists
+        check_request = ClientCheckRequest(
+            user=fga_user,
+            relation="manager",
+            object=fga_object
         )
-        response = await fga_client.read(read_request)
+        response = await fga_client.check(check_request)
 
-        # Check if tuple exists in response
-        exists = len(response.tuples) > 0
+        exists = response.allowed
         logger.info(f"FGA manager tuple check: {fga_user} -> manager -> {fga_object} exists={exists}")
         return exists
 
