@@ -526,6 +526,7 @@ Return ONLY the JSON object, no other text."""
                 "requested_scopes": requested_scopes,  # What was requested
                 "demo_mode": result.get("demo_mode", False),
                 "token_claims": result.get("token_claims"),  # Decoded JWT claims for display
+                "access_token": result.get("access_token"),  # Raw JWT string for display
             }
 
             if result.get("access_denied"):

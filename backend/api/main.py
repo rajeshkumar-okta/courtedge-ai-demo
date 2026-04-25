@@ -94,6 +94,7 @@ class TokenExchange(BaseModel):
     error: Optional[str] = None
     demo_mode: bool = False
     token_claims: Optional[Dict[str, Any]] = None  # Decoded JWT claims for display
+    access_token: Optional[str] = None  # Raw JWT string for display
 
 
 class AgentFlowStep(BaseModel):
