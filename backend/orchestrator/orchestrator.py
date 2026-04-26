@@ -30,7 +30,7 @@ from auth.multi_agent_auth import (
     AGENT_SALES, AGENT_INVENTORY, AGENT_CUSTOMER, AGENT_PRICING
 )
 from auth.agent_config import get_agent_config, DEMO_AGENTS
-from auth.fga_client import check_agent_access, is_fga_configured, FGACheckResult, ensure_manager_relationship
+from auth.fga_client import check_agent_access, is_fga_configured, FGACheckResult
 
 # Import agent classes
 from agents import SalesAgent, InventoryAgent, PricingAgent, CustomerAgent
@@ -380,12 +380,10 @@ Return ONLY the JSON object, no other text."""
 
         logger.info(f"FGA check for {user_email}: is_manager={is_manager}, is_on_vacation={is_on_vacation}")
 
-        # Step 1: Ensure manager relationship in FGA based on Manager claim
-        # This dynamically creates/deletes the manager tuple
-        manager_result = await ensure_manager_relationship(user_email, is_manager)
-        logger.info(f"FGA manager tuple management: user={user_email}, is_manager={is_manager}, action={manager_result.get('action')}")
+        # Note: Manager and clearance tuples are pre-seeded in the new FGA store.
+        # We only pass vacation as a contextual tuple.
 
-        # Step 2: Check each agent against FGA
+        # Check each agent against FGA
         allowed_agents = []
         fga_checks = []
 
