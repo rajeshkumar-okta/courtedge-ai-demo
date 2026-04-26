@@ -14,7 +14,11 @@
       "Bash(git push:*)",
       "Bash(python3 -c \"from agents import SalesAgent, InventoryAgent, PricingAgent, CustomerAgent; print\\('Agent imports OK'\\)\")",
       "Bash(git ls-tree:*)",
-      "Bash(python3 -c ':*)"
+      "Bash(python3 -c ':*)",
+      "Bash(pip show:*)",
+      "Bash(ls -la /Users/rajeshkumar/*.fga.yaml /Users/rajeshkumar/.fga.yaml)",
+      "Bash(fga model:*)",
+      "Bash(fga tuple:*)"
     ]
   }
 }
