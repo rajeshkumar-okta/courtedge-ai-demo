@@ -345,10 +345,11 @@ Return ONLY the JSON object, no other text."""
             "status": "processing"
         })
 
-        # Extract Manager and Vacation claims from Auth Server token
+        # Extract Manager, Vacation, and Clearance claims from Auth Server token
         # (Org Auth Server doesn't support custom claims, so we use Custom Auth Server token)
         is_manager = False
         is_on_vacation = False
+        clearance_level = 0
 
         inventory_result = agent_results.get(AGENT_INVENTORY, {})
         if inventory_result.get("success") and inventory_result.get("access_token"):
@@ -368,6 +369,15 @@ Return ONLY the JSON object, no other text."""
                     is_on_vacation = bool(vacation_claim)
                     logger.info(f"Extracted Vacation claim from Auth Server token: {vacation_claim}")
 
+                # Extract Clearance claim from Auth Server token
+                clearance_claim = auth_token_claims.get("Clearance", auth_token_claims.get("clearance_level"))
+                if clearance_claim is not None:
+                    try:
+                        clearance_level = int(clearance_claim)
+                        logger.info(f"Extracted Clearance claim from Auth Server token: {clearance_claim}")
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid Clearance claim value: {clearance_claim}")
+
                 logger.info(f"Auth Server token claims for FGA: {list(auth_token_claims.keys())}")
             except Exception as e:
                 logger.warning(f"Could not extract claims from Auth Server token: {e}")
@@ -377,8 +387,10 @@ Return ONLY the JSON object, no other text."""
             is_manager = self.user_info.get("is_manager", self.user_info.get("Manager", False))
         if not is_on_vacation:
             is_on_vacation = self.user_info.get("is_on_vacation", self.user_info.get("Vacation", False))
+        if clearance_level == 0:
+            clearance_level = int(self.user_info.get("clearance_level", self.user_info.get("Clearance", 0)))
 
-        logger.info(f"FGA check for {user_email}: is_manager={is_manager}, is_on_vacation={is_on_vacation}")
+        logger.info(f"FGA check for {user_email}: is_manager={is_manager}, is_on_vacation={is_on_vacation}, clearance={clearance_level}")
 
         # Note: Manager and clearance tuples are pre-seeded in the new FGA store.
         # We only pass vacation as a contextual tuple.
@@ -390,14 +402,17 @@ Return ONLY the JSON object, no other text."""
         for agent_type in agents:
             scopes = state["agent_scopes"].get(agent_type, [])
 
-            # Run FGA check using FGA API with contextual tuples
-            # - user_email: from token's email claim (human-readable)
+            # Run FGA check using FGA API with new model
+            # - user_email: from token's email claim
             # - is_on_vacation: passed as contextual tuple if true
+            # - item_id: default to "widget-a" (general inventory item)
+            # Note: In a real app, you'd map the user's request to specific items
             result: FGACheckResult = await check_agent_access(
                 user_email=user_email,
                 agent_type=agent_type,
                 scopes=scopes,
                 is_on_vacation=is_on_vacation,
+                item_id="widget-a",  # Default item for demo
             )
 
             # Record the FGA check for UI visibility
