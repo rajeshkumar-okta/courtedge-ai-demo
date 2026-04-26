@@ -16,17 +16,12 @@ Go to: **Render Dashboard → Your Backend Service → Environment**
 | Variable | New Value | Notes |
 |----------|-----------|-------|
 | `FGA_STORE_ID` | `01KQ391VCMRKCD0G5XE92HVTQY` | New store with full model |
+| `FGA_MODEL_ID` | `01KQ3D8YPK0CZPH2JKPZ6AWQS8` | New store model ID |
 | `FGA_CLIENT_ID` | `u1ZA9DURrNm3AIQhLZebblzw2txLkrcC` | New store credentials |
 | `FGA_CLIENT_SECRET` | `tN4_e9MnndkaUUO6yuSKH6AHrJiGZyEMiUbz5oam0DqyfLzhh-sx8dyCv7_ZSLEM` | New store credentials |
 | `FGA_API_TOKEN_ISSUER` | `auth.fga.dev` | **Changed** from `fga.us.auth0.com` |
 | `FGA_API_URL` | `https://api.us1.fga.dev` | Same (no change) |
 | `FGA_API_AUDIENCE` | `https://api.us1.fga.dev/` | Same (no change) |
-
-### Variables to Remove
-
-| Variable | Reason |
-|----------|--------|
-| `FGA_MODEL_ID` | Not used in code (store auto-uses latest model) |
 
 ---
 

@@ -71,6 +71,7 @@ logger = logging.getLogger(__name__)
 # FGA Configuration from environment
 FGA_API_URL = os.getenv("FGA_API_URL", "https://api.us1.fga.dev")
 FGA_STORE_ID = os.getenv("FGA_STORE_ID")
+FGA_MODEL_ID = os.getenv("FGA_MODEL_ID")
 FGA_CLIENT_ID = os.getenv("FGA_CLIENT_ID")
 FGA_CLIENT_SECRET = os.getenv("FGA_CLIENT_SECRET")
 FGA_API_TOKEN_ISSUER = os.getenv("FGA_API_TOKEN_ISSUER", "auth.fga.dev")
@@ -124,6 +125,7 @@ def _get_fga_client() -> Optional[OpenFgaClient]:
         configuration = ClientConfiguration(
             api_url=FGA_API_URL,
             store_id=FGA_STORE_ID,
+            authorization_model_id=FGA_MODEL_ID,
             credentials=credentials,
         )
         _fga_client = OpenFgaClient(configuration)
