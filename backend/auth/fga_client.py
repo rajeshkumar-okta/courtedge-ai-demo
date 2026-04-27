@@ -137,10 +137,372 @@ def _get_fga_client() -> Optional[OpenFgaClient]:
 
 
 # ============================================================================
-# FGA Check Functions
+# Dynamic Tuple Management Functions
 # ============================================================================
-# Note: Manager and clearance tuples are pre-seeded in the FGA store.
-# Only vacation status is passed as a contextual tuple per request.
+
+async def check_manager_tuple_exists(
+    user_email: str,
+    system_id: str = "warehouse"
+) -> bool:
+    """
+    Check if manager tuple exists in FGA store for a user.
+
+    Args:
+        user_email: User's email/login from Okta
+        system_id: The inventory system ID (default: warehouse)
+
+    Returns:
+        True if tuple exists, False otherwise
+    """
+    fga_client = _get_fga_client()
+    if not fga_client:
+        logger.warning("FGA client not available - cannot check manager tuple")
+        return False
+
+    fga_user = f"user:{user_email}"
+    fga_object = f"inventory_system:{system_id}"
+
+    try:
+        # Use check API to verify if the manager relation exists
+        check_request = ClientCheckRequest(
+            user=fga_user,
+            relation="manager",
+            object=fga_object
+        )
+        response = await fga_client.check(check_request)
+
+        exists = response.allowed
+        logger.info(f"FGA manager tuple check: {fga_user} -> manager -> {fga_object} exists={exists}")
+        return exists
+
+    except Exception as e:
+        logger.error(f"FGA manager tuple check failed: {e}")
+        return False
+
+
+async def write_manager_tuple(
+    user_email: str,
+    system_id: str = "warehouse"
+) -> bool:
+    """
+    Write manager tuple to FGA store.
+
+    Creates: user:{email} manager inventory_system:{system_id}
+
+    Args:
+        user_email: User's email/login from Okta
+        system_id: The inventory system ID (default: warehouse)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    fga_client = _get_fga_client()
+    if not fga_client:
+        logger.warning("FGA client not available - cannot write manager tuple")
+        return False
+
+    fga_user = f"user:{user_email}"
+    fga_object = f"inventory_system:{system_id}"
+
+    try:
+        write_request = ClientWriteRequest(
+            writes=[
+                ClientTuple(
+                    user=fga_user,
+                    relation="manager",
+                    object=fga_object
+                )
+            ]
+        )
+        await fga_client.write(write_request)
+        logger.info(f"FGA: Created manager tuple: {fga_user} -> manager -> {fga_object}")
+        return True
+
+    except Exception as e:
+        error_str = str(e).lower()
+        if "already exists" in error_str:
+            logger.info(f"FGA: Manager tuple already exists for {user_email}")
+            return True
+        logger.error(f"FGA write manager tuple failed: {e}")
+        return False
+
+
+async def delete_manager_tuple(
+    user_email: str,
+    system_id: str = "warehouse"
+) -> bool:
+    """
+    Delete manager tuple from FGA store.
+
+    Removes: user:{email} manager inventory_system:{system_id}
+
+    Args:
+        user_email: User's email/login from Okta
+        system_id: The inventory system ID (default: warehouse)
+
+    Returns:
+        True if successful (or tuple didn't exist), False on error
+    """
+    fga_client = _get_fga_client()
+    if not fga_client:
+        logger.warning("FGA client not available - cannot delete manager tuple")
+        return False
+
+    fga_user = f"user:{user_email}"
+    fga_object = f"inventory_system:{system_id}"
+
+    try:
+        write_request = ClientWriteRequest(
+            deletes=[
+                ClientTuple(
+                    user=fga_user,
+                    relation="manager",
+                    object=fga_object
+                )
+            ]
+        )
+        await fga_client.write(write_request)
+        logger.info(f"FGA: Deleted manager tuple: {fga_user} -> manager -> {fga_object}")
+        return True
+
+    except Exception as e:
+        error_str = str(e).lower()
+        if "does not exist" in error_str or "not found" in error_str:
+            logger.info(f"FGA: Manager tuple didn't exist for {user_email} (nothing to delete)")
+            return True
+        logger.error(f"FGA delete manager tuple failed: {e}")
+        return False
+
+
+async def ensure_manager_relationship(
+    user_email: str,
+    is_manager: bool,
+    system_id: str = "warehouse"
+) -> dict:
+    """
+    Ensure manager relationship in FGA matches the Okta Manager claim.
+
+    - If is_manager=True and tuple doesn't exist -> create it
+    - If is_manager=False and tuple exists -> delete it
+    - Otherwise, no action needed
+
+    Args:
+        user_email: User's email/login from Okta
+        is_manager: Value of Manager claim from Okta token
+        system_id: The inventory system ID (default: warehouse)
+
+    Returns:
+        Dict with action taken and success status
+    """
+    result = {
+        "user": user_email,
+        "is_manager_claim": is_manager,
+        "action": "none",
+        "success": True,
+    }
+
+    # Check current state in FGA
+    tuple_exists = await check_manager_tuple_exists(user_email, system_id)
+    result["tuple_existed"] = tuple_exists
+
+    if is_manager and not tuple_exists:
+        # Manager claim is true but tuple doesn't exist -> create it
+        success = await write_manager_tuple(user_email, system_id)
+        result["action"] = "created"
+        result["success"] = success
+        logger.info(f"FGA: Manager tuple created for {user_email} (Manager claim=true)")
+
+    elif not is_manager and tuple_exists:
+        # Manager claim is false but tuple exists -> delete it
+        success = await delete_manager_tuple(user_email, system_id)
+        result["action"] = "deleted"
+        result["success"] = success
+        logger.info(f"FGA: Manager tuple deleted for {user_email} (Manager claim=false)")
+
+    else:
+        # No action needed - state is already correct
+        logger.info(f"FGA: Manager tuple state correct for {user_email} (no action)")
+
+    return result
+
+
+async def check_clearance_tuple_exists(
+    user_email: str,
+    clearance_level: int
+) -> bool:
+    """
+    Check if clearance tuple exists in FGA store for a user at specific level.
+
+    Args:
+        user_email: User's email/login from Okta
+        clearance_level: The clearance level to check
+
+    Returns:
+        True if tuple exists, False otherwise
+    """
+    fga_client = _get_fga_client()
+    if not fga_client:
+        return False
+
+    fga_user = f"user:{user_email}"
+    fga_object = f"clearance_level:{clearance_level}"
+
+    try:
+        check_request = ClientCheckRequest(
+            user=fga_user,
+            relation="granted_to",
+            object=fga_object
+        )
+        response = await fga_client.check(check_request)
+        exists = response.allowed
+        logger.info(f"FGA clearance tuple check: {fga_user} -> granted_to -> {fga_object} exists={exists}")
+        return exists
+
+    except Exception as e:
+        logger.error(f"FGA clearance tuple check failed: {e}")
+        return False
+
+
+async def write_clearance_tuple(
+    user_email: str,
+    clearance_level: int
+) -> bool:
+    """
+    Write clearance tuple to FGA store.
+
+    Creates: user:{email} granted_to clearance_level:{level}
+
+    Args:
+        user_email: User's email/login from Okta
+        clearance_level: The clearance level to grant
+
+    Returns:
+        True if successful, False otherwise
+    """
+    fga_client = _get_fga_client()
+    if not fga_client:
+        logger.warning("FGA client not available - cannot write clearance tuple")
+        return False
+
+    fga_user = f"user:{user_email}"
+    fga_object = f"clearance_level:{clearance_level}"
+
+    try:
+        write_request = ClientWriteRequest(
+            writes=[
+                ClientTuple(
+                    user=fga_user,
+                    relation="granted_to",
+                    object=fga_object
+                )
+            ]
+        )
+        await fga_client.write(write_request)
+        logger.info(f"FGA: Created clearance tuple: {fga_user} -> granted_to -> {fga_object}")
+        return True
+
+    except Exception as e:
+        error_str = str(e).lower()
+        if "already exists" in error_str:
+            logger.info(f"FGA: Clearance tuple already exists for {user_email} at level {clearance_level}")
+            return True
+        logger.error(f"FGA write clearance tuple failed: {e}")
+        return False
+
+
+async def delete_clearance_tuple(
+    user_email: str,
+    clearance_level: int
+) -> bool:
+    """
+    Delete clearance tuple from FGA store.
+
+    Removes: user:{email} granted_to clearance_level:{level}
+
+    Args:
+        user_email: User's email/login from Okta
+        clearance_level: The clearance level to remove
+
+    Returns:
+        True if successful, False on error
+    """
+    fga_client = _get_fga_client()
+    if not fga_client:
+        return False
+
+    fga_user = f"user:{user_email}"
+    fga_object = f"clearance_level:{clearance_level}"
+
+    try:
+        write_request = ClientWriteRequest(
+            deletes=[
+                ClientTuple(
+                    user=fga_user,
+                    relation="granted_to",
+                    object=fga_object
+                )
+            ]
+        )
+        await fga_client.write(write_request)
+        logger.info(f"FGA: Deleted clearance tuple: {fga_user} -> granted_to -> {fga_object}")
+        return True
+
+    except Exception as e:
+        error_str = str(e).lower()
+        if "does not exist" in error_str or "not found" in error_str:
+            logger.info(f"FGA: Clearance tuple didn't exist for {user_email} at level {clearance_level}")
+            return True
+        logger.error(f"FGA delete clearance tuple failed: {e}")
+        return False
+
+
+async def ensure_clearance_tuple(
+    user_email: str,
+    clearance_level: int
+) -> dict:
+    """
+    Ensure clearance tuple in FGA matches the Okta Clearance claim.
+
+    Creates tuple if clearance > 0 and doesn't exist.
+    Note: This creates a tuple at the specific level. The FGA hierarchy
+    (holder from next_higher) automatically grants access to lower levels.
+
+    Args:
+        user_email: User's email/login from Okta
+        clearance_level: Value of Clearance claim from Okta token
+
+    Returns:
+        Dict with action taken and success status
+    """
+    result = {
+        "user": user_email,
+        "clearance_level": clearance_level,
+        "action": "none",
+        "success": True,
+    }
+
+    if clearance_level <= 0:
+        logger.info(f"FGA: No clearance level for {user_email} (level={clearance_level})")
+        return result
+
+    # Check if tuple exists at this level
+    tuple_exists = await check_clearance_tuple_exists(user_email, clearance_level)
+    result["tuple_existed"] = tuple_exists
+
+    if not tuple_exists:
+        # Clearance tuple doesn't exist -> create it
+        success = await write_clearance_tuple(user_email, clearance_level)
+        result["action"] = "created"
+        result["success"] = success
+        logger.info(f"FGA: Clearance tuple created for {user_email} at level {clearance_level}")
+    else:
+        logger.info(f"FGA: Clearance tuple already exists for {user_email} at level {clearance_level}")
+
+    return result
+
+
+# ============================================================================
+# FGA Check Functions
 # ============================================================================
 
 async def check_inventory_access_via_fga(

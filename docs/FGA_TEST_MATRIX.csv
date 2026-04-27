@@ -1,0 +1,75 @@
+Test #,Manager,Vacation,Clearance,Action,Item,Item Req Clearance,Expected Result,Block Reason,Test Prompt,Scope,FGA Permission,Expected Log Pattern,Okta Profile Change,FGA Tuple Change
+1.1,TRUE,FALSE,2,View,widget-a,3,FAIL,Clearance tuple may not exist,Show me basketballs,inventory:read,can_view,"Clearance: 2, can_view",Set: is_a_manager=true is_on_vacation=false clearance_level=2,fga tuple write user:bob.manager@atko.email manager inventory_system:warehouse; fga tuple write user:bob.manager@atko.email granted_to clearance_level:2
+1.2,TRUE,FALSE,2,Update,widget-a,3,FAIL,Clearance (2 < 3),Add 100 basketballs,inventory:write,can_update,"Clearance: 2, can_update -> False, lacks clearance",Same as 1.1,Same as 1.1
+1.3,TRUE,FALSE,2,View,classified-part,7,FAIL,Clearance tuple may not exist,Show Pro Arena Hoop,inventory:read,can_view,"Clearance: 2, can_view",Same as 1.1,Same as 1.1
+1.4,TRUE,FALSE,2,Update,classified-part,7,FAIL,Clearance (2 < 7),Update Pro Arena Hoop System,inventory:write,can_update,"Clearance: 2, can_update -> False",Same as 1.1,Same as 1.1
+1.5,TRUE,FALSE,3,View,widget-a,3,PASS,-,Show me basketballs,inventory:read,can_view,"Clearance: 3, can_view -> True",Set clearance_level=3,fga tuple delete user:bob.manager@atko.email granted_to clearance_level:2; fga tuple write user:bob.manager@atko.email granted_to clearance_level:3
+1.6,TRUE,FALSE,3,Update,widget-a,3,PASS,-,Add 100 basketballs,inventory:write,can_update,"Clearance: 3, can_update -> True",Same as 1.5,Same as 1.5
+1.7,TRUE,FALSE,3,View,classified-part,7,PASS,-,Show Pro Arena Hoop,inventory:read,can_view,can_view -> True,Same as 1.5,Same as 1.5
+1.8,TRUE,FALSE,3,Update,classified-part,7,FAIL,Clearance (3 < 7),Update Pro Arena Hoop System,inventory:write,can_update,"Clearance: 3, can_update -> False",Same as 1.5,Same as 1.5
+1.9,TRUE,FALSE,5,View,widget-a,3,PASS,-,Show me basketballs,inventory:read,can_view,"Clearance: 5, can_view -> True",Set clearance_level=5,fga tuple delete user:bob.manager@atko.email granted_to clearance_level:3; fga tuple write user:bob.manager@atko.email granted_to clearance_level:5
+1.1,TRUE,FALSE,5,Update,widget-a,3,PASS,-,Add 100 basketballs,inventory:write,can_update,"Clearance: 5, can_update -> True",Same as 1.9,Same as 1.9
+1.11,TRUE,FALSE,5,View,classified-part,7,PASS,-,Show Pro Arena Hoop,inventory:read,can_view,can_view -> True,Same as 1.9,Same as 1.9
+1.12,TRUE,FALSE,5,Update,classified-part,7,FAIL,Clearance (5 < 7),Update Pro Arena Hoop System,inventory:write,can_update,"Clearance: 5, can_update -> False",Same as 1.9,Same as 1.9
+1.13,TRUE,FALSE,7,View,widget-a,3,PASS,-,Show me basketballs,inventory:read,can_view,"Clearance: 7, can_view -> True",Set clearance_level=7,fga tuple delete user:bob.manager@atko.email granted_to clearance_level:5; fga tuple write user:bob.manager@atko.email granted_to clearance_level:7
+1.14,TRUE,FALSE,7,Update,widget-a,3,PASS,-,Add 100 basketballs,inventory:write,can_update,"Clearance: 7, can_update -> True",Same as 1.13,Same as 1.13
+1.15,TRUE,FALSE,7,View,classified-part,7,PASS,-,Show Pro Arena Hoop,inventory:read,can_view,can_view -> True,Same as 1.13,Same as 1.13
+1.16,TRUE,FALSE,7,Update,classified-part,7,PASS,-,Update Pro Arena Hoop System,inventory:write,can_update,"Clearance: 7, can_update -> True",Same as 1.13,Same as 1.13
+2.1,TRUE,TRUE,2,View,widget-a,3,FAIL,Vacation,Show me basketballs,inventory:read,can_view,"Vacation: True, contextual_tuples=1, can_view -> False, on vacation",Set is_on_vacation=true,No change needed
+2.2,TRUE,TRUE,2,Update,widget-a,3,FAIL,Vacation,Add 100 basketballs,inventory:write,can_update,"Vacation: True, can_update -> False, on vacation",Same as 2.1,Same as 2.1
+2.3,TRUE,TRUE,2,View,classified-part,7,FAIL,Vacation,Show Pro Arena Hoop,inventory:read,can_view,"Vacation: True, can_view -> False",Same as 2.1,Same as 2.1
+2.4,TRUE,TRUE,2,Update,classified-part,7,FAIL,Vacation,Update Pro Arena Hoop System,inventory:write,can_update,"Vacation: True, can_update -> False",Same as 2.1,Same as 2.1
+2.5,TRUE,TRUE,3,View,widget-a,3,FAIL,Vacation,Show me basketballs,inventory:read,can_view,"Vacation: True, can_view -> False",Set is_on_vacation=true clearance_level=3,fga tuple delete clearance_level:2; fga tuple write clearance_level:3
+2.6,TRUE,TRUE,3,Update,widget-a,3,FAIL,Vacation,Add 100 basketballs,inventory:write,can_update,"Vacation: True, can_update -> False",Same as 2.5,Same as 2.5
+2.7,TRUE,TRUE,3,View,classified-part,7,FAIL,Vacation,Show Pro Arena Hoop,inventory:read,can_view,"Vacation: True, can_view -> False",Same as 2.5,Same as 2.5
+2.8,TRUE,TRUE,3,Update,classified-part,7,FAIL,Vacation,Update Pro Arena Hoop System,inventory:write,can_update,"Vacation: True, can_update -> False",Same as 2.5,Same as 2.5
+2.9,TRUE,TRUE,5,View,widget-a,3,FAIL,Vacation,Show me basketballs,inventory:read,can_view,"Vacation: True, can_view -> False",Set clearance_level=5,fga tuple delete clearance_level:3; fga tuple write clearance_level:5
+2.1,TRUE,TRUE,5,Update,widget-a,3,FAIL,Vacation,Add 100 basketballs,inventory:write,can_update,"Vacation: True, can_update -> False",Same as 2.9,Same as 2.9
+2.11,TRUE,TRUE,5,View,classified-part,7,FAIL,Vacation,Show Pro Arena Hoop,inventory:read,can_view,"Vacation: True, can_view -> False",Same as 2.9,Same as 2.9
+2.12,TRUE,TRUE,5,Update,classified-part,7,FAIL,Vacation,Update Pro Arena Hoop System,inventory:write,can_update,"Vacation: True, can_update -> False",Same as 2.9,Same as 2.9
+2.13,TRUE,TRUE,7,View,widget-a,3,FAIL,Vacation,Show me basketballs,inventory:read,can_view,"Vacation: True, can_view -> False",Set clearance_level=7,fga tuple delete clearance_level:5; fga tuple write clearance_level:7
+2.14,TRUE,TRUE,7,Update,widget-a,3,FAIL,Vacation,Add 100 basketballs,inventory:write,can_update,"Vacation: True, can_update -> False",Same as 2.13,Same as 2.13
+2.15,TRUE,TRUE,7,View,classified-part,7,FAIL,Vacation,Show Pro Arena Hoop,inventory:read,can_view,"Vacation: True, can_view -> False",Same as 2.13,Same as 2.13
+2.16,TRUE,TRUE,7,Update,classified-part,7,FAIL,Vacation,Update Pro Arena Hoop System,inventory:write,can_update,"Vacation: True, can_update -> False",Same as 2.13,Same as 2.13
+3.1,FALSE,FALSE,2,View,widget-a,3,FAIL,Not Manager,Show me basketballs,inventory:read,can_view,"Manager: False, not a manager in FGA",Set is_a_manager=false is_on_vacation=false clearance_level=2,fga tuple delete user:bob.manager@atko.email manager inventory_system:warehouse
+3.2,FALSE,FALSE,2,Update,widget-a,3,FAIL,Not Manager,Add 100 basketballs,inventory:write,can_update,"Manager: False, not a manager",Same as 3.1,Same as 3.1
+3.3,FALSE,FALSE,2,View,classified-part,7,FAIL,Not Manager,Show Pro Arena Hoop,inventory:read,can_view,"Manager: False, not a manager",Same as 3.1,Same as 3.1
+3.4,FALSE,FALSE,2,Update,classified-part,7,FAIL,Not Manager,Update Pro Arena Hoop System,inventory:write,can_update,"Manager: False, not a manager",Same as 3.1,Same as 3.1
+3.5,FALSE,FALSE,3,View,widget-a,3,FAIL,Not Manager,Show me basketballs,inventory:read,can_view,"Manager: False, not a manager",Set clearance_level=3,fga tuple delete clearance_level:2; fga tuple write clearance_level:3
+3.6,FALSE,FALSE,3,Update,widget-a,3,FAIL,Not Manager,Add 100 basketballs,inventory:write,can_update,Manager: False,Same as 3.5,Same as 3.5
+3.7,FALSE,FALSE,3,View,classified-part,7,FAIL,Not Manager,Show Pro Arena Hoop,inventory:read,can_view,Manager: False,Same as 3.5,Same as 3.5
+3.8,FALSE,FALSE,3,Update,classified-part,7,FAIL,Not Manager,Update Pro Arena Hoop System,inventory:write,can_update,Manager: False,Same as 3.5,Same as 3.5
+3.9,FALSE,FALSE,5,View,widget-a,3,FAIL,Not Manager,Show me basketballs,inventory:read,can_view,Manager: False,Set clearance_level=5,fga tuple delete clearance_level:3; fga tuple write clearance_level:5
+3.1,FALSE,FALSE,5,Update,widget-a,3,FAIL,Not Manager,Add 100 basketballs,inventory:write,can_update,Manager: False,Same as 3.9,Same as 3.9
+3.11,FALSE,FALSE,5,View,classified-part,7,FAIL,Not Manager,Show Pro Arena Hoop,inventory:read,can_view,Manager: False,Same as 3.9,Same as 3.9
+3.12,FALSE,FALSE,5,Update,classified-part,7,FAIL,Not Manager,Update Pro Arena Hoop System,inventory:write,can_update,Manager: False,Same as 3.9,Same as 3.9
+3.13,FALSE,FALSE,7,View,widget-a,3,FAIL,Not Manager,Show me basketballs,inventory:read,can_view,Manager: False,Set clearance_level=7,fga tuple delete clearance_level:5; fga tuple write clearance_level:7
+3.14,FALSE,FALSE,7,Update,widget-a,3,FAIL,Not Manager,Add 100 basketballs,inventory:write,can_update,Manager: False,Same as 3.13,Same as 3.13
+3.15,FALSE,FALSE,7,View,classified-part,7,FAIL,Not Manager,Show Pro Arena Hoop,inventory:read,can_view,Manager: False,Same as 3.13,Same as 3.13
+3.16,FALSE,FALSE,7,Update,classified-part,7,FAIL,Not Manager,Update Pro Arena Hoop System,inventory:write,can_update,Manager: False,Same as 3.13,Same as 3.13
+4.1,FALSE,TRUE,2,View,widget-a,3,FAIL,Not Manager (vacation irrelevant),Show me basketballs,inventory:read,can_view,"Manager: False, not a manager",Set is_on_vacation=true,No change
+4.2,FALSE,TRUE,2,Update,widget-a,3,FAIL,Not Manager (vacation irrelevant),Add 100 basketballs,inventory:write,can_update,Manager: False,Same as 4.1,Same as 4.1
+4.3,FALSE,TRUE,2,View,classified-part,7,FAIL,Not Manager (vacation irrelevant),Show Pro Arena Hoop,inventory:read,can_view,Manager: False,Same as 4.1,Same as 4.1
+4.4,FALSE,TRUE,2,Update,classified-part,7,FAIL,Not Manager (vacation irrelevant),Update Pro Arena Hoop System,inventory:write,can_update,Manager: False,Same as 4.1,Same as 4.1
+4.5,FALSE,TRUE,3,View,widget-a,3,FAIL,Not Manager,Show me basketballs,inventory:read,can_view,Manager: False,Set clearance_level=3,fga tuple delete clearance_level:2; fga tuple write clearance_level:3
+4.6,FALSE,TRUE,3,Update,widget-a,3,FAIL,Not Manager,Add 100 basketballs,inventory:write,can_update,Manager: False,Same as 4.5,Same as 4.5
+4.7,FALSE,TRUE,3,View,classified-part,7,FAIL,Not Manager,Show Pro Arena Hoop,inventory:read,can_view,Manager: False,Same as 4.5,Same as 4.5
+4.8,FALSE,TRUE,3,Update,classified-part,7,FAIL,Not Manager,Update Pro Arena Hoop System,inventory:write,can_update,Manager: False,Same as 4.5,Same as 4.5
+4.9,FALSE,TRUE,5,View,widget-a,3,FAIL,Not Manager,Show me basketballs,inventory:read,can_view,Manager: False,Set clearance_level=5,fga tuple delete clearance_level:3; fga tuple write clearance_level:5
+4.1,FALSE,TRUE,5,Update,widget-a,3,FAIL,Not Manager,Add 100 basketballs,inventory:write,can_update,Manager: False,Same as 4.9,Same as 4.9
+4.11,FALSE,TRUE,5,View,classified-part,7,FAIL,Not Manager,Show Pro Arena Hoop,inventory:read,can_view,Manager: False,Same as 4.9,Same as 4.9
+4.12,FALSE,TRUE,5,Update,classified-part,7,FAIL,Not Manager,Update Pro Arena Hoop System,inventory:write,can_update,Manager: False,Same as 4.9,Same as 4.9
+4.13,FALSE,TRUE,7,View,widget-a,3,FAIL,Not Manager,Show me basketballs,inventory:read,can_view,Manager: False,Set clearance_level=7,fga tuple delete clearance_level:5; fga tuple write clearance_level:7
+4.14,FALSE,TRUE,7,Update,widget-a,3,FAIL,Not Manager,Add 100 basketballs,inventory:write,can_update,Manager: False,Same as 4.13,Same as 4.13
+4.15,FALSE,TRUE,7,View,classified-part,7,FAIL,Not Manager,Show Pro Arena Hoop,inventory:read,can_view,Manager: False,Same as 4.13,Same as 4.13
+4.16,FALSE,TRUE,7,Update,classified-part,7,FAIL,Not Manager,Update Pro Arena Hoop System,inventory:write,can_update,Manager: False,Same as 4.13,Same as 4.13
+DEMO-1,TRUE,TRUE,2,View,widget-a,3,FAIL,Vacation,Show me basketballs,inventory:read,can_view,"Vacation: True, contextual_tuples=1, on vacation",CURRENT STATE - No changes needed,Ensure manager + clearance tuples exist
+DEMO-2,TRUE,FALSE,2,View,widget-a,3,PASS (if tuple exists),-,Show me basketballs,inventory:read,can_view,"Vacation: False, can_view -> True",Change is_on_vacation=false,No change
+DEMO-3,TRUE,FALSE,2,Update,widget-a,3,FAIL,Clearance (2 < 3),Add 100 basketballs,inventory:write,can_update,"Clearance: 2, can_update -> False, lacks clearance",Keep is_on_vacation=false,No change
+DEMO-4,TRUE,FALSE,3,Update,widget-a,3,PASS,-,Add 100 basketballs,inventory:write,can_update,"Clearance: 3, can_update -> True",Change clearance_level=3,fga tuple delete clearance_level:2; fga tuple write clearance_level:3
+DEMO-5,TRUE,FALSE,3,Update,classified-part,7,FAIL,Clearance (3 < 7),Update Pro Arena Hoop System,inventory:write,can_update,"Clearance: 3, can_update -> False, lacks clearance",Keep clearance_level=3,No change
+DEMO-6,TRUE,FALSE,3,View,classified-part,7,PASS,-,Show Pro Arena Hoop,inventory:read,can_view,"Clearance: 3, can_view -> True",Same as DEMO-5,Same as DEMO-5
+DEMO-7,TRUE,FALSE,7,Update,classified-part,7,PASS,-,Update Pro Arena Hoop System,inventory:write,can_update,"Clearance: 7, can_update -> True",Change clearance_level=7,fga tuple delete clearance_level:3; fga tuple write clearance_level:7
+DEMO-8,TRUE,TRUE,7,View,classified-part,7,FAIL,Vacation,Show Pro Arena Hoop,inventory:read,can_view,"Vacation: True, can_view -> False, on vacation",Change is_on_vacation=true,No change
+DEMO-9,FALSE,FALSE,7,View,widget-a,3,FAIL,Not Manager,Show me basketballs,inventory:read,can_view,"Manager: False, not a manager in FGA",Change is_a_manager=false,fga tuple delete user:bob.manager@atko.email manager inventory_system:warehouse
+DEMO-10,TRUE,FALSE,5,View,widget-a,3,PASS,-,Show me basketballs,inventory:read,can_view,"Manager: True, Vacation: False, Clearance: 5, can_view -> True",Restore: is_a_manager=true is_on_vacation=false clearance_level=5,fga tuple write manager; fga tuple delete clearance_level:7; fga tuple write clearance_level:5
