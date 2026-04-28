@@ -18,7 +18,8 @@
       "Bash(pip show:*)",
       "Bash(ls -la /Users/rajeshkumar/*.fga.yaml /Users/rajeshkumar/.fga.yaml)",
       "Bash(fga model:*)",
-      "Bash(fga tuple:*)"
+      "Bash(fga tuple:*)",
+      "Bash(fga query:*)"
     ]
   }
 }
