@@ -421,7 +421,14 @@ Return ONLY the JSON object, no other text."""
                 item_id="widget-a",  # Default item for demo
             )
 
-            # Record the FGA check for UI visibility
+            # Determine required clearance for the item (for UI display)
+            item_id = "widget-a"  # Default item
+            item_required_clearance = 3  # widget-a requires clearance 3
+            if "classified" in state["user_message"].lower():
+                item_id = "classified-part"
+                item_required_clearance = 7  # classified-part requires clearance 7
+
+            # Record the FGA check for UI visibility with real values
             fga_check_record = {
                 "agent": agent_type,
                 "allowed": result.allowed,
@@ -432,6 +439,22 @@ Return ONLY the JSON object, no other text."""
                 "reason": result.reason,
                 "requested_scopes": scopes,
                 "contextual_tuples": result.contextual_tuples or [],
+                # Real values from Okta claims
+                "user_claims": {
+                    "is_manager": is_manager,
+                    "is_on_vacation": is_on_vacation,
+                    "clearance_level": clearance_level,
+                },
+                # Item info for clearance comparison
+                "item_info": {
+                    "item_id": item_id,
+                    "required_clearance": item_required_clearance,
+                },
+                # Tuple summary for display
+                "stored_tuples": {
+                    "manager": f"inventory_system:warehouse" if is_manager else None,
+                    "clearance": f"clearance_level:{clearance_level}" if clearance_level > 0 else None,
+                },
             }
             fga_checks.append(fga_check_record)
 
