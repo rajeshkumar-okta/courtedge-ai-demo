@@ -97,6 +97,29 @@
     <p><strong>FGA Model:</strong> ProGear New (01KQAYNTB7AY897GMG5EHDVM8K)</p>
     <p><strong>Date:</strong> April 2026</p>
 
+    <h2>Item Clearance Requirements</h2>
+    <table class="item-table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Required Clearance</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>widget-a</strong></td>
+                <td>3</td>
+                <td>General inventory items (basketballs, etc.)</td>
+            </tr>
+            <tr>
+                <td><strong>classified-part</strong></td>
+                <td>7</td>
+                <td>Sensitive military contract items</td>
+            </tr>
+        </tbody>
+    </table>
+
     <h2>Test Scenarios</h2>
     <table>
         <thead>
@@ -119,45 +142,45 @@
             </tr>
             <tr>
                 <td>1</td>
-                <td>Manager view</td>
+                <td>Manager view widget-a</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>5</td>
-                <td class="prompt">How many basketballs are in stock?</td>
+                <td class="prompt">How many widget-a items are in stock?</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">active_manager can view</td>
             </tr>
             <tr>
                 <td>2</td>
-                <td>Manager update (sufficient clearance)</td>
+                <td>Manager update widget-a (sufficient clearance)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>5</td>
-                <td class="prompt">Add 50 basketballs to inventory</td>
+                <td class="prompt">Add 50 widget-a to inventory</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">Clearance 5 ≥ required 3</td>
             </tr>
             <tr>
                 <td>3</td>
-                <td>Manager update classified (insufficient)</td>
+                <td>Manager update classified-part (insufficient)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>2</td>
-                <td class="prompt">Update classified-part to 100 units</td>
+                <td class="prompt">Update classified-part quantity to 100</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">Clearance 2 < required 7</td>
             </tr>
             <tr>
                 <td>4</td>
-                <td>Manager view classified (low clearance)</td>
+                <td>Manager view classified-part (low clearance)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>2</td>
-                <td class="prompt">Check stock for classified parts</td>
+                <td class="prompt">Check stock for classified-part</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">View doesn't need clearance</td>
             </tr>
@@ -168,7 +191,7 @@
                 <td class="true">true</td>
                 <td class="true">true</td>
                 <td>5</td>
-                <td class="prompt">How many basketballs are in stock?</td>
+                <td class="prompt">How many widget-a items are in stock?</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">on_vacation blocks active_manager</td>
             </tr>
@@ -179,7 +202,7 @@
                 <td class="true">true</td>
                 <td class="true">true</td>
                 <td>10</td>
-                <td class="prompt">Add 50 basketballs to inventory</td>
+                <td class="prompt">Add 50 widget-a to inventory</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">Vacation blocks even with max clearance</td>
             </tr>
@@ -190,23 +213,23 @@
             </tr>
             <tr>
                 <td>7</td>
-                <td>Non-manager view (viewer role)</td>
+                <td>Non-manager view widget-a (viewer role)</td>
                 <td>Sarah</td>
                 <td class="false">false</td>
                 <td class="false">false</td>
                 <td>7</td>
-                <td class="prompt">How many basketballs are in stock?</td>
+                <td class="prompt">How many widget-a items are in stock?</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">active_viewer can view</td>
             </tr>
             <tr>
                 <td>8</td>
-                <td>Non-manager update (denied)</td>
+                <td>Non-manager update widget-a (denied)</td>
                 <td>Sarah</td>
                 <td class="false">false</td>
                 <td class="false">false</td>
                 <td>7</td>
-                <td class="prompt">Add 50 basketballs to inventory</td>
+                <td class="prompt">Add 50 widget-a to inventory</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">Viewers cannot update</td>
             </tr>
@@ -217,7 +240,7 @@
                 <td class="false">false</td>
                 <td class="true">true</td>
                 <td>7</td>
-                <td class="prompt">How many basketballs are in stock?</td>
+                <td class="prompt">How many widget-a items are in stock?</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">on_vacation blocks active_viewer</td>
             </tr>
@@ -228,7 +251,7 @@
             </tr>
             <tr>
                 <td>10</td>
-                <td>Manager update level 7 item (sufficient)</td>
+                <td>Manager update classified-part (sufficient)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
@@ -239,7 +262,7 @@
             </tr>
             <tr>
                 <td>11</td>
-                <td>Manager update level 7 item (exact match)</td>
+                <td>Manager update classified-part (exact match)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
@@ -250,34 +273,14 @@
             </tr>
             <tr>
                 <td>12</td>
-                <td>Viewer update level 3 item (denied)</td>
+                <td>Viewer update widget-a (denied)</td>
                 <td>Sarah</td>
                 <td class="false">false</td>
                 <td class="false">false</td>
                 <td>10</td>
-                <td class="prompt">Add 100 widgets to inventory</td>
+                <td class="prompt">Add 100 widget-a to inventory</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">Viewers can't update even with clearance 10</td>
-            </tr>
-        </tbody>
-    </table>
-
-    <h2>Item Clearance Requirements</h2>
-    <table class="item-table">
-        <thead>
-            <tr>
-                <th>Item</th>
-                <th>Required Clearance</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>widget-a (basketballs, general)</td>
-                <td>3</td>
-            </tr>
-            <tr>
-                <td>classified-part</td>
-                <td>7</td>
             </tr>
         </tbody>
     </table>
@@ -288,8 +291,8 @@
             <tr>
                 <th>User State</th>
                 <th>can_view</th>
-                <th>can_update (level 3)</th>
-                <th>can_update (level 7)</th>
+                <th>can_update (widget-a)</th>
+                <th>can_update (classified-part)</th>
             </tr>
         </thead>
         <tbody>
@@ -356,6 +359,40 @@ type inventory_item
   relations
     define can_view: can_read from parent              # CHANGED
     define can_update: has_clearance and can_manage from parent
+    </pre>
+
+    <h2>Copy-Paste Prompts</h2>
+    <pre style="background: #f5f5f5; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+# Scenario 1: Manager view widget-a
+How many widget-a items are in stock?
+
+# Scenario 2: Manager update widget-a
+Add 50 widget-a to inventory
+
+# Scenario 3: Manager update classified-part (insufficient clearance)
+Update classified-part quantity to 100
+
+# Scenario 4: Manager view classified-part
+Check stock for classified-part
+
+# Scenario 5 & 6: Manager on vacation
+How many widget-a items are in stock?
+Add 50 widget-a to inventory
+
+# Scenario 7: Non-manager view (viewer)
+How many widget-a items are in stock?
+
+# Scenario 8: Non-manager update (denied)
+Add 50 widget-a to inventory
+
+# Scenario 9: Non-manager on vacation
+How many widget-a items are in stock?
+
+# Scenario 10 & 11: Manager update classified-part (sufficient)
+Update classified-part quantity to 50
+
+# Scenario 12: Viewer update (denied)
+Add 100 widget-a to inventory
     </pre>
 
 </body>
