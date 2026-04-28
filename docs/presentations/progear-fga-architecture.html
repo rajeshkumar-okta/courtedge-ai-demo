@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProGear Sales AI - Okta + FGA Architecture</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neutral-100: #FBFBFA;
+            --neutral-300: #E0DAD2;
+            --navy: #00033E;
+            --blue-300: #0131FF;
+            --blue-200: #7398FF;
+            --orange-300: #FF6217;
+            --purple-300: #9921FE;
+            --text-dark: #1A1A1A;
+            --text-light: #FFFFFF;
+            --text-muted: #5A5A5A;
+            --footer-dark: #6B6B6B;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #191919;
+            overflow: hidden;
+        }
+
+        .slides-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .slide {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+            padding: 60px 80px 80px 80px;
+            flex-direction: column;
+        }
+
+        .slide.active { display: flex; }
+
+        /* Background types */
+        .bg-dark-gradient {
+            background:
+                radial-gradient(ellipse at 20% 80%, rgba(255, 98, 23, 0.65) 0%, transparent 45%),
+                radial-gradient(ellipse at 60% 40%, rgba(1, 49, 255, 0.85) 0%, transparent 55%),
+                radial-gradient(ellipse at 88% 18%, rgba(153, 33, 254, 0.55) 0%, transparent 45%),
+                #00033E;
+        }
+
+        .bg-light {
+            background: #FBFBFA;
+        }
+
+        .bg-warm-gradient {
+            background:
+                radial-gradient(ellipse at 88% 12%, rgba(255, 140, 80, 0.45) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 0%, rgba(200, 100, 200, 0.2) 0%, transparent 40%),
+                #FBFBFA;
+        }
+
+        .bg-blue-gradient {
+            background: radial-gradient(ellipse at 50% 50%, #1540CC 0%, #00033E 75%);
+        }
+
+        /* Title slide */
+        .title-slide {
+            justify-content: space-between;
+        }
+
+        .title-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .title-header img {
+            height: 40px;
+        }
+
+        .title-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding-bottom: 100px;
+        }
+
+        .title-heading {
+            font-family: 'Playfair Display', serif;
+            font-size: 64px;
+            font-weight: 600;
+            color: white;
+            line-height: 1.2;
+            max-width: 80%;
+        }
+
+        .title-subtitle {
+            font-size: 24px;
+            color: rgba(255,255,255,0.8);
+            margin-top: 20px;
+        }
+
+        .title-presenters {
+            display: flex;
+            gap: 60px;
+        }
+
+        .presenter {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .presenter-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: white;
+        }
+
+        .presenter-role {
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        /* Content slides */
+        .slide-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 48px;
+            font-weight: 500;
+            color: var(--text-dark);
+            margin-bottom: 30px;
+        }
+
+        .slide-title.white {
+            color: white;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Safe harbor */
+        .safe-harbor {
+            background: var(--neutral-100);
+            border: 2px solid var(--blue-300);
+        }
+
+        .safe-harbor h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 40px;
+            margin-bottom: 20px;
+            color: var(--text-dark);
+        }
+
+        .safe-harbor p {
+            font-size: 11px;
+            line-height: 1.6;
+            color: var(--text-dark);
+        }
+
+        /* Architecture diagram */
+        .arch-diagram {
+            background: var(--navy);
+            border-radius: 12px;
+            padding: 30px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            color: white;
+            white-space: pre;
+            overflow: hidden;
+        }
+
+        .arch-diagram .highlight {
+            color: var(--blue-200);
+        }
+
+        .arch-diagram .orange {
+            color: var(--orange-300);
+        }
+
+        .arch-diagram .purple {
+            color: var(--purple-300);
+        }
+
+        /* Two columns */
+        .two-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            flex: 1;
+        }
+
+        .column h3 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--blue-300);
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--blue-300);
+            padding-bottom: 8px;
+        }
+
+        .column ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .column li {
+            font-size: 16px;
+            line-height: 1.8;
+            color: var(--text-dark);
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .column li:before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 10px;
+            width: 8px;
+            height: 8px;
+            background: var(--blue-300);
+            border-radius: 50%;
+        }
+
+        /* Three columns */
+        .three-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 30px;
+            flex: 1;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--neutral-300);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .card h4 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 12px;
+        }
+
+        .card p, .card li {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-dark);
+        }
+
+        .card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .card li {
+            padding-left: 16px;
+            position: relative;
+            margin-bottom: 6px;
+        }
+
+        .card li:before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 8px;
+            width: 6px;
+            height: 6px;
+            background: var(--blue-300);
+            border-radius: 50%;
+        }
+
+        /* Flow diagram */
+        .flow-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .flow-box {
+            background: var(--navy);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .flow-box.blue {
+            background: var(--blue-300);
+        }
+
+        .flow-box.purple {
+            background: var(--purple-300);
+        }
+
+        .flow-arrow {
+            color: var(--blue-300);
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        /* Token flow */
+        .token-flow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .token-box {
+            background: white;
+            border: 2px solid var(--neutral-300);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            min-width: 180px;
+        }
+
+        .token-box h5 {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--blue-300);
+            margin-bottom: 10px;
+        }
+
+        .token-box ul {
+            list-style: none;
+            padding: 0;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: left;
+        }
+
+        .token-box li {
+            margin-bottom: 4px;
+        }
+
+        .token-arrow {
+            font-size: 30px;
+            color: var(--blue-300);
+        }
+
+        /* Permission matrix */
+        .matrix-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .matrix-table th {
+            background: var(--navy);
+            color: white;
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .matrix-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--neutral-300);
+            font-size: 14px;
+        }
+
+        .matrix-table tr:nth-child(even) {
+            background: var(--neutral-300);
+        }
+
+        .check {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background: #22c55e;
+            color: white;
+            border-radius: 50%;
+            font-size: 14px;
+        }
+
+        .cross {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            font-size: 14px;
+        }
+
+        /* Statement slide */
+        .statement-slide {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .statement-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 56px;
+            font-weight: 500;
+            color: white;
+            max-width: 80%;
+            line-height: 1.3;
+        }
+
+        .statement-sub {
+            font-size: 20px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 20px;
+        }
+
+        /* Footer */
+        .slide-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            padding: 0 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .footer-left, .footer-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .footer-aura {
+            height: 24px;
+        }
+
+        .footer-wordmark {
+            height: 20px;
+        }
+
+        .footer-copyright, .footer-classification {
+            font-size: 10px;
+            color: var(--footer-dark);
+        }
+
+        .footer-white .footer-copyright,
+        .footer-white .footer-classification {
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* Navigation */
+        .navigation {
+            position: fixed;
+            bottom: 70px;
+            right: 40px;
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            background: var(--blue-300);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: #0020cc;
+            transform: translateY(-2px);
+        }
+
+        .nav-btn:disabled {
+            background: #999;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .fullscreen-btn {
+            position: fixed;
+            top: 30px;
+            right: 40px;
+            background: var(--blue-300);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            z-index: 1000;
+        }
+
+        .slide-counter {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: var(--footer-dark);
+            font-weight: 600;
+            z-index: 1000;
+        }
+
+        /* Code block */
+        .code-block {
+            background: var(--navy);
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: white;
+            overflow-x: auto;
+        }
+
+        .code-block .keyword {
+            color: var(--purple-300);
+        }
+
+        .code-block .type {
+            color: var(--blue-200);
+        }
+
+        .code-block .relation {
+            color: var(--orange-300);
+        }
+
+        .code-block .comment {
+            color: #6B7280;
+        }
+
+        /* Diagram boxes */
+        .diagram-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            margin: 30px 0;
+        }
+
+        .diagram-box {
+            border: 2px solid var(--blue-300);
+            border-radius: 12px;
+            padding: 20px 30px;
+            text-align: center;
+            min-width: 200px;
+        }
+
+        .diagram-box h5 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--blue-300);
+            margin-bottom: 10px;
+        }
+
+        .diagram-box p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .diagram-arrow {
+            font-size: 36px;
+            color: var(--blue-300);
+        }
+
+        /* Four columns */
+        .four-columns {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: var(--neutral-300);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--blue-300);
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* Clearance hierarchy */
+        .clearance-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .clearance-box {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--blue-300);
+            color: white;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .clearance-box.active {
+            background: var(--purple-300);
+            transform: scale(1.1);
+        }
+
+        .clearance-arrow {
+            color: var(--text-muted);
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <button class="fullscreen-btn" onclick="toggleFullscreen()">Full Screen</button>
+    <div class="slide-counter">
+        <span id="currentSlide">1</span> / <span id="totalSlides">14</span>
+    </div>
+
+    <div class="slides-container">
+        <!-- Slide 1: Title -->
+        <div class="slide bg-dark-gradient title-slide active">
+            <div class="title-header">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='none' stroke='white' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='20' fill='white'/%3E%3C/svg%3E" alt="Okta Aura" style="height: 40px;">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 60'%3E%3Ctext x='10' y='45' font-family='Arial' font-size='40' font-weight='bold' fill='white'%3Eokta%3C/text%3E%3C/svg%3E" alt="Okta" style="height: 40px;">
+            </div>
+            <div class="title-content">
+                <h1 class="title-heading">ProGear Sales AI<br>Architecture Overview</h1>
+                <p class="title-subtitle">Okta + Auth0 FGA: Better Together</p>
+            </div>
+            <div class="title-presenters">
+                <div class="presenter">
+                    <span class="presenter-name">Technical Deep Dive</span>
+                    <span class="presenter-role">Fine-Grained Authorization for AI Agents</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 2: Safe Harbor -->
+        <div class="slide safe-harbor">
+            <h2>Safe harbor</h2>
+            <p>This presentation contains "forward-looking statements" within the meaning of the "safe harbor" provisions of the Private Securities Litigation Reform Act of 1995, including but not limited to, statements regarding our financial outlook, business strategy and plans, market trends and market size, opportunities and positioning. These forward-looking statements are based on current expectations, estimates, forecasts and projections. Words such as "expect," "anticipate," "should," "believe," "hope," "target," "project," "goals," "estimate," "potential," "predict," "may," "will," "might," "could," "intend," "shall" and variations of these terms and similar expressions are intended to identify these forward-looking statements, although not all forward-looking statements contain these identifying words. Forward-looking statements are subject to a number of risks and uncertainties, many of which involve factors or circumstances that are beyond our control. For example, global economic conditions have in the past and could in the future reduce demand for our products; we and our third-party service providers have in the past and could in the future experience cybersecurity incidents; we may be unable to manage or sustain the level of growth that our business has experienced in prior periods; our financial resources may not be sufficient to maintain or improve our competitive position; we may be unable to attract new customers, or retain or sell additional products to existing customers; customer growth has slowed in recent periods and could continue to decelerate in the future; we could experience interruptions or performance problems associated with our technology, including a service outage; we and our third-party service providers have failed, or were perceived as having failed, to fully comply with various privacy and security provisions to which we are subject, and similar incidents could occur in the future; we may not achieve expected synergies and efficiencies of operations from recent acquisitions or business combinations, and we may not be able to successfully integrate the companies we acquire; and we may not be able to pay off our convertible senior notes when due. Further information on potential factors that could affect our financial results is included in our most recent Quarterly Report on Form 10-Q and our other filings with the Securities and Exchange Commission. The forward-looking statements included in this presentation represent our views only as of the date of this presentation and we assume no obligation and do not intend to update these forward-looking statements.</p>
+            <p style="margin-top: 15px;">Any products, features, functionalities, certifications, authorizations, or attestations referenced in this presentation that are not currently generally available or have not yet been obtained or are not currently maintained may not be delivered or obtained on time or at all. Product roadmaps do not represent a commitment, obligation or promise to deliver any product, feature, functionality, certification or attestation and you should not rely on them to make your purchase decisions.</p>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+                <div class="footer-right">
+                    <span class="footer-classification">OKTA INTERNAL</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 3: The Challenge -->
+        <div class="slide bg-dark-gradient statement-slide">
+            <p class="statement-text">AI Agents Need Fine-Grained Authorization</p>
+            <p class="statement-sub">Identity alone isn't enough. Context matters.</p>
+            <div class="slide-footer footer-white">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 4: Why Both? -->
+        <div class="slide bg-light">
+            <h2 class="slide-title">Why Okta + FGA?</h2>
+            <div class="content-area">
+                <div class="two-columns">
+                    <div class="column">
+                        <h3>Okta Does</h3>
+                        <ul>
+                            <li>Identity verification</li>
+                            <li>Group-based RBAC</li>
+                            <li>Token issuance & exchange</li>
+                            <li>Custom claims (Manager, Vacation, Clearance)</li>
+                            <li>Coarse-grained access control</li>
+                        </ul>
+                    </div>
+                    <div class="column">
+                        <h3>FGA Does</h3>
+                        <ul>
+                            <li>Relationship-based access (ReBAC)</li>
+                            <li>Attribute-based conditions (ABAC)</li>
+                            <li>Hierarchical permissions</li>
+                            <li>Contextual tuple evaluation</li>
+                            <li>Fine-grained resource control</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="flow-container" style="margin-top: 40px;">
+                    <div class="flow-box">Okta: Who is this?</div>
+                    <span class="flow-arrow">+</span>
+                    <div class="flow-box blue">FGA: Can they do X on Y?</div>
+                    <span class="flow-arrow">=</span>
+                    <div class="flow-box purple">Complete Governance</div>
+                </div>
+            </div>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 5: High-Level Architecture -->
+        <div class="slide bg-light">
+            <h2 class="slide-title">High-Level Architecture</h2>
+            <div class="content-area">
+                <div class="diagram-container">
+                    <div class="diagram-box">
+                        <h5>React Frontend</h5>
+                        <p>Chat UI<br>Agent Flow<br>FGA Visualization</p>
+                    </div>
+                    <span class="diagram-arrow">&#8594;</span>
+                    <div class="diagram-box">
+                        <h5>Backend Orchestrator</h5>
+                        <p>Router Agent<br>Token Exchange<br>FGA Client</p>
+                    </div>
+                    <span class="diagram-arrow">&#8594;</span>
+                    <div class="diagram-box">
+                        <h5>AI Agents</h5>
+                        <p>Sales | Inventory<br>Customer | Pricing</p>
+                    </div>
+                </div>
+                <div class="diagram-container" style="margin-top: 20px;">
+                    <div class="diagram-box" style="border-color: var(--orange-300);">
+                        <h5 style="color: var(--orange-300);">Okta</h5>
+                        <p>Identity<br>Custom Auth Servers<br>Claims</p>
+                    </div>
+                    <span class="diagram-arrow" style="color: var(--text-muted);">&#8596;</span>
+                    <div class="diagram-box" style="border-color: var(--purple-300);">
+                        <h5 style="color: var(--purple-300);">Auth0 FGA</h5>
+                        <p>Tuples<br>Permission Checks<br>Hierarchies</p>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 6: Token Flow -->
+        <div class="slide bg-light">
+            <h2 class="slide-title">3-Token Authentication Flow</h2>
+            <div class="content-area">
+                <div class="token-flow">
+                    <div class="token-box">
+                        <h5>ID Token</h5>
+                        <ul>
+                            <li>sub (user ID)</li>
+                            <li>email</li>
+                            <li>groups</li>
+                            <li>name</li>
+                        </ul>
+                    </div>
+                    <span class="token-arrow">&#8594;</span>
+                    <div class="token-box">
+                        <h5>ID-JAG Token</h5>
+                        <ul>
+                            <li>sub</li>
+                            <li>email</li>
+                            <li>aud (JAG)</li>
+                            <li>intermediate</li>
+                        </ul>
+                    </div>
+                    <span class="token-arrow">&#8594;</span>
+                    <div class="token-box" style="border-color: var(--blue-300);">
+                        <h5>Access Token</h5>
+                        <ul>
+                            <li>scp (agent scopes)</li>
+                            <li style="color: var(--blue-300); font-weight: 700;">Manager claim</li>
+                            <li style="color: var(--orange-300); font-weight: 700;">Vacation claim</li>
+                            <li style="color: var(--purple-300); font-weight: 700;">Clearance claim</li>
+                        </ul>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 30px;">
+                    <p style="font-size: 16px; color: var(--text-muted);">Custom claims from Okta Auth Server drive FGA tuple management</p>
+                </div>
+            </div>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 7: FGA Model -->
+        <div class="slide bg-light">
+            <h2 class="slide-title">FGA Authorization Model</h2>
+            <div class="content-area">
+                <div class="code-block">
+<span class="keyword">type</span> <span class="type">inventory_item</span>
+  <span class="comment">relations</span>
+    <span class="relation">can_view</span>: can_manage from parent
+    <span class="relation">can_update</span>: has_clearance <span class="keyword">and</span> can_manage from parent
+
+<span class="keyword">type</span> <span class="type">inventory_system</span>
+  <span class="comment">relations</span>
+    manager: [user]
+    on_vacation: [user]  <span class="comment">// contextual tuple</span>
+    <span class="relation">active_manager</span>: manager <span class="keyword">but not</span> on_vacation
+    can_manage: active_manager
+
+<span class="keyword">type</span> <span class="type">clearance_level</span>
+  <span class="comment">relations</span>
+    next_higher: [clearance_level]
+    granted_to: [user]
+    <span class="relation">holder</span>: granted_to <span class="keyword">or</span> holder from next_higher  <span class="comment">// hierarchy!</span>
+                </div>
+            </div>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 8: Clearance Hierarchy -->
+        <div class="slide bg-light">
+            <h2 class="slide-title">Clearance Hierarchy</h2>
+            <div class="content-area" style="align-items: center; justify-content: center;">
+                <p style="font-size: 18px; color: var(--text-muted); margin-bottom: 30px;">User with Level 5 automatically gets access to levels 1-5</p>
+                <div class="clearance-flow">
+                    <div class="clearance-box">1</div>
+                    <span class="clearance-arrow">&#8592;</span>
+                    <div class="clearance-box">2</div>
+                    <span class="clearance-arrow">&#8592;</span>
+                    <div class="clearance-box">3</div>
+                    <span class="clearance-arrow">&#8592;</span>
+                    <div class="clearance-box">4</div>
+                    <span class="clearance-arrow">&#8592;</span>
+                    <div class="clearance-box active">5</div>
+                    <span class="clearance-arrow">&#8592;</span>
+                    <div class="clearance-box" style="opacity: 0.5;">6</div>
+                    <span class="clearance-arrow">&#8592;</span>
+                    <div class="clearance-box" style="opacity: 0.5;">7</div>
+                </div>
+                <div style="margin-top: 40px; display: flex; gap: 40px; justify-content: center;">
+                    <div class="card" style="min-width: 200px; text-align: center;">
+                        <h4>widget-a</h4>
+                        <p>Requires: Level 3</p>
+                        <p style="color: #22c55e; font-weight: 700; margin-top: 10px;">Accessible</p>
+                    </div>
+                    <div class="card" style="min-width: 200px; text-align: center;">
+                        <h4>classified-part</h4>
+                        <p>Requires: Level 7</p>
+                        <p style="color: #ef4444; font-weight: 700; margin-top: 10px;">Denied</p>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 9: Tuple Types -->
+        <div class="slide bg-light">
+            <h2 class="slide-title">Tuple Types</h2>
+            <div class="content-area">
+                <div class="three-columns">
+                    <div class="card">
+                        <h4 style="color: var(--blue-300);">Stored Tuples</h4>
+                        <p style="margin-bottom: 15px;">Persistent in FGA store</p>
+                        <ul>
+                            <li>Manager relationship</li>
+                            <li>Clearance grants</li>
+                            <li>Item hierarchies</li>
+                        </ul>
+                        <p style="margin-top: 15px; font-size: 12px; color: var(--text-muted);">Created/deleted based on Okta claims</p>
+                    </div>
+                    <div class="card">
+                        <h4 style="color: var(--orange-300);">Contextual Tuples</h4>
+                        <p style="margin-bottom: 15px;">Passed per-request</p>
+                        <ul>
+                            <li>Vacation status</li>
+                        </ul>
+                        <p style="margin-top: 15px; font-size: 12px; color: var(--text-muted);">Not stored - real-time evaluation from Okta claim</p>
+                    </div>
+                    <div class="card">
+                        <h4 style="color: var(--purple-300);">Structural Tuples</h4>
+                        <p style="margin-bottom: 15px;">Pre-seeded (static)</p>
+                        <ul>
+                            <li>Clearance chain (1-10)</li>
+                            <li>Item parent relationships</li>
+                            <li>Item required clearance</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 10: Permission Matrix -->
+        <div class="slide bg-light">
+            <h2 class="slide-title">Permission Matrix</h2>
+            <div class="content-area">
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th>Operation</th>
+                            <th>FGA Permission</th>
+                            <th>Requirements</th>
+                            <th>Vacation Blocks?</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>View Inventory</strong></td>
+                            <td>can_view</td>
+                            <td>active_manager</td>
+                            <td><span class="cross">X</span> Yes</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Update Inventory</strong></td>
+                            <td>can_update</td>
+                            <td>active_manager + has_clearance</td>
+                            <td><span class="cross">X</span> Yes</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Alerts</strong></td>
+                            <td>n/a</td>
+                            <td>Okta RBAC only</td>
+                            <td><span class="check">&#10003;</span> No</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Pricing / Sales</strong></td>
+                            <td>n/a</td>
+                            <td>Okta RBAC only</td>
+                            <td><span class="check">&#10003;</span> No</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 11: Demo Scenarios -->
+        <div class="slide bg-warm-gradient">
+            <h2 class="slide-title">Demo Scenarios</h2>
+            <div class="content-area">
+                <div class="two-columns">
+                    <div class="column">
+                        <h3 style="color: #22c55e;">Success Scenarios</h3>
+                        <ul>
+                            <li>View inventory (active manager)</li>
+                            <li>Update with sufficient clearance</li>
+                            <li>Pricing/Sales queries (no FGA)</li>
+                        </ul>
+                    </div>
+                    <div class="column">
+                        <h3 style="color: #ef4444;">Failure Scenarios</h3>
+                        <ul>
+                            <li>Vacation blocks all access</li>
+                            <li>Insufficient clearance for update</li>
+                            <li>Non-manager denied</li>
+                        </ul>
+                    </div>
+                </div>
+                <div style="margin-top: 40px; text-align: center;">
+                    <p style="font-size: 16px; color: var(--text-muted);">All scenarios use single user Bob with different Okta profile settings</p>
+                </div>
+            </div>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 12: Key Benefits -->
+        <div class="slide bg-light">
+            <h2 class="slide-title">Key Benefits</h2>
+            <div class="content-area">
+                <div class="four-columns">
+                    <div class="stat-card">
+                        <div class="number" style="font-size: 36px;">Dynamic</div>
+                        <div class="label">Authorization changes without code deployment</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number" style="font-size: 36px;">Auditable</div>
+                        <div class="label">Every decision logged with full context</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number" style="font-size: 36px;">Scalable</div>
+                        <div class="label">Zanzibar-based architecture</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number" style="font-size: 36px;">Real-time</div>
+                        <div class="label">Contextual tuples for instant policy changes</div>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 13: Summary -->
+        <div class="slide bg-blue-gradient statement-slide">
+            <p class="statement-text">Okta + FGA = Complete AI Governance</p>
+            <p class="statement-sub">Identity + Fine-Grained Authorization + Contextual Conditions</p>
+            <div class="slide-footer footer-white">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 14: Thank You -->
+        <div class="slide bg-dark-gradient statement-slide">
+            <p class="statement-text">Thank You!</p>
+            <p class="statement-sub">Questions?</p>
+            <div class="slide-footer footer-white">
+                <div class="footer-left">
+                    <span class="footer-copyright">Copyright Okta, Inc. All rights reserved.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)">&#8592; Previous</button>
+        <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)">Next &#8594;</button>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        document.getElementById('totalSlides').textContent = totalSlides;
+
+        function showSlide(n) {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (n + totalSlides) % totalSlides;
+            slides[currentSlide].classList.add('active');
+
+            document.getElementById('currentSlide').textContent = currentSlide + 1;
+            document.getElementById('prevBtn').disabled = currentSlide === 0;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides - 1;
+        }
+
+        function changeSlide(direction) {
+            showSlide(currentSlide + direction);
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                if (currentSlide < totalSlides - 1) changeSlide(1);
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (currentSlide > 0) changeSlide(-1);
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                showSlide(0);
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                showSlide(totalSlides - 1);
+            } else if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
+        });
+
+        showSlide(0);
+    </script>
+</body>
+</html>
