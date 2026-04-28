@@ -1,0 +1,16 @@
+#,Scenario,User,Manager,Vacation,Clearance,Prompt,Expected,Key Point
+Manager Scenarios,,,,,,,,
+1,Manager view,Bob,true,false,5,How many basketballs are in stock?,PASS,active_manager can view
+2,Manager update (sufficient clearance),Bob,true,false,5,Add 50 basketballs to inventory,PASS,Clearance 5 ≥ required 3
+3,Manager update classified (insufficient),Bob,true,false,2,Update classified-part to 100 units,FAIL,Clearance 2 < required 7
+4,Manager view classified (low clearance),Bob,true,false,2,Check stock for classified parts,PASS,View doesn't need clearance
+5,Manager on vacation (view blocked),Bob,true,true,5,How many basketballs are in stock?,FAIL,on_vacation blocks active_manager
+6,Manager on vacation (update blocked),Bob,true,true,10,Add 50 basketballs to inventory,FAIL,Vacation blocks even with max clearance
+Viewer Scenarios (NEW),,,,,,,,
+7,Non-manager view (viewer role),Sarah,false,false,7,How many basketballs are in stock?,PASS,active_viewer can view
+8,Non-manager update (denied),Sarah,false,false,7,Add 50 basketballs to inventory,FAIL,Viewers cannot update
+9,Non-manager on vacation,Sarah,false,true,7,How many basketballs are in stock?,FAIL,on_vacation blocks active_viewer
+Update Clearance Scenarios,,,,,,,,
+10,Manager update level 7 item (sufficient),Bob,true,false,8,Update classified-part quantity to 50,PASS,Clearance 8 ≥ required 7
+11,Manager update level 7 item (exact match),Bob,true,false,7,Update classified-part quantity to 50,PASS,Clearance 7 = required 7
+12,Viewer update level 3 item (denied),Sarah,false,false,10,Add 100 widgets to inventory,FAIL,Viewers can't update even with clearance 10
