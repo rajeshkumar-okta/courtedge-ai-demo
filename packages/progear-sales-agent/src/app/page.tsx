@@ -249,7 +249,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-neutral-bg to-primary flex flex-col">
+    <main className="h-screen bg-gradient-to-b from-neutral-bg to-primary flex flex-col">
       {/* Header */}
       <header className="bg-gradient-to-r from-primary via-court-brown to-primary-light border-b-4 border-accent shadow-lg relative overflow-hidden">
         {/* Court pattern */}
