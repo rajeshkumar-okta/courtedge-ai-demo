@@ -460,9 +460,6 @@ export default function Home() {
           {/* Agent Flow */}
           <AgentFlowCard steps={currentAgentFlow} isLoading={isLoading} />
 
-          {/* FGA Fine-Grained Authorization */}
-          <FGAExplanationCard checks={currentFGAChecks} isLoading={isLoading} />
-
           {/* Token Exchanges */}
           <TokenExchangeCard exchanges={currentTokenExchanges} />
 
@@ -472,6 +469,9 @@ export default function Home() {
             idTokenClaims={session?.idToken ? decodeJwtPayload(session.idToken) ?? undefined : undefined}
             idTokenRaw={session?.idToken}
           />
+
+          {/* FGA Fine-Grained Authorization */}
+          <FGAExplanationCard checks={currentFGAChecks} isLoading={isLoading} />
 
           {/* Architecture Link */}
           <Link
