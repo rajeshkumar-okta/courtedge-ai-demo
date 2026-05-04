@@ -150,6 +150,12 @@ export default function AgentFlowCard({ steps, isLoading }: Props) {
                     {status === 'inactive' && agentIcons[agent]}
                   </div>
                   <span className="text-[10px] text-gray-500 mt-1 capitalize">{agent}</span>
+                  <span
+                    className="mt-0.5 px-1.5 py-0.5 text-[9px] font-semibold rounded"
+                    style={{ backgroundColor: '#dcfce7', color: '#166534' }}
+                  >
+                    MCP
+                  </span>
                 </div>
               );
             })}
