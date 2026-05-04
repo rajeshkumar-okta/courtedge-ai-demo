@@ -162,9 +162,7 @@ function TokenSection({
               Encoded (JWT)
             </button>
             {rawToken && showRaw && (
-              <div className="ml-auto">
-                <CopyButton text={rawToken} label="JWT" />
-              </div>
+              <CopyButton text={rawToken} label="JWT" />
             )}
           </div>
 
