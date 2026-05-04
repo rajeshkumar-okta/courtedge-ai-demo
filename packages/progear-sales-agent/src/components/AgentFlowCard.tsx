@@ -132,7 +132,7 @@ export default function AgentFlowCard({ steps, isLoading }: Props) {
               };
 
               return (
-                <div key={agent} className="flex flex-col items-center">
+                <div key={agent} className="flex flex-col items-center min-w-[72px]">
                   <div
                     className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold transition-all ${
                       status === 'completed' ? 'text-white shadow-lg' :
@@ -149,13 +149,7 @@ export default function AgentFlowCard({ steps, isLoading }: Props) {
                     {status === 'pending' && <Clock className="w-5 h-5" />}
                     {status === 'inactive' && agentIcons[agent]}
                   </div>
-                  <span className="text-[10px] text-gray-500 mt-1 capitalize">{agent}</span>
-                  <span
-                    className="mt-0.5 px-1.5 py-0.5 text-[9px] font-semibold rounded"
-                    style={{ backgroundColor: '#dcfce7', color: '#166534' }}
-                  >
-                    MCP
-                  </span>
+                  <span className="text-[10px] text-gray-500 mt-1 capitalize whitespace-nowrap">{agent} MCP</span>
                 </div>
               );
             })}
