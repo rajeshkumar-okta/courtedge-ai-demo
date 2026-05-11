@@ -81,3 +81,59 @@ class ApprovalService:
             return False
         qty = parsed_intent.get("quantity_delta")
         return isinstance(qty, int) and qty >= self._threshold
+
+    # ---------- creation ----------
+
+    async def create_request(
+        self,
+        *,
+        user_email: str,
+        requester_id: str,
+        approver_group_name: str,
+        agent: str,
+        scope: str,
+        parsed_intent: dict,
+        original_task: str,
+        fga_check_id: str | None = None,
+    ) -> tuple[str, Intent]:
+        """Create an OIG Access Request and return (request_id, intent).
+
+        Approver group is assigned to the Request Type in Okta Admin; passing
+        `approver_group_name` here is only for the human-readable message.
+        """
+        qty = int(parsed_intent["quantity_delta"])
+        product = str(parsed_intent["product_name"])
+        intent = Intent(
+            user_email=user_email,
+            agent=agent,
+            scope=scope,
+            product_name=product,
+            quantity_delta=qty,
+            original_task=original_task,
+            submitted_at=self._now().isoformat().replace("+00:00", "Z"),
+            fga_check_id=fga_check_id,
+        )
+        subject = f"Inventory write: +{qty} {product}"
+        human = (
+            f"AI agent requests inventory write on behalf of {user_email}.\n"
+            f"Action: Add {qty} units of {product} (scope: {scope}).\n"
+            f"Original task: \"{original_task}\".\n"
+            f"Assigned approver group: {approver_group_name}."
+        )
+        justification = encode_justification(human, intent)
+
+        try:
+            created = await self._oig.create_request(
+                request_type_id=self._request_type_id,
+                requester_id=requester_id,
+                subject=subject,
+                justification=justification,
+            )
+        except (OIGUnavailable, OIGAuthError) as exc:
+            logger.error("OIG create_request failed: %s", exc)
+            raise
+
+        request_id = created.get("id") or created.get("requestId")
+        if not request_id:
+            raise RuntimeError(f"OIG response missing request id: {created!r}")
+        return request_id, intent
