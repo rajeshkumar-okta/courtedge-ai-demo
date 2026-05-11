@@ -53,3 +53,31 @@ def find_comment(comments: list[dict[str, Any]], prefix: str) -> dict[str, Any] 
         if (c.get("text") or "").startswith(prefix):
             return c
     return None
+
+
+_QTY_RE = re.compile(r"(\d+)")
+_PRODUCT_KEYWORDS = (
+    "basketball", "treadmill", "helmet", "glove", "shoe", "jersey",
+    "ball", "racket", "bat",
+)
+
+
+def parse_inventory_intent(task: str) -> dict | None:
+    """Parse quantity + product from a natural-language inventory task.
+
+    Returns None if quantity can't be determined. `product_name` defaults
+    to "basketball" when no keyword matches, matching current inventory
+    agent behavior — callers that care should check the returned product.
+    """
+    if not task:
+        return None
+    m = _QTY_RE.search(task)
+    if not m:
+        return None
+    try:
+        quantity = int(m.group(1))
+    except ValueError:
+        return None
+    task_lower = task.lower()
+    product = next((p for p in _PRODUCT_KEYWORDS if p in task_lower), "basketball")
+    return {"quantity_delta": quantity, "product_name": product}
