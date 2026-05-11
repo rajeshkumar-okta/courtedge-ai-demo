@@ -14,7 +14,7 @@ IMPORTANT: This agent has FGA (Fine-Grained Authorization) integration.
 from typing import Dict, Any, Optional
 from .base_agent import BaseAgent
 from data.demo_store import demo_store
-from backend.services.intent import parse_inventory_intent
+from services.intent import parse_inventory_intent
 
 
 class InventoryAgent(BaseAgent):
