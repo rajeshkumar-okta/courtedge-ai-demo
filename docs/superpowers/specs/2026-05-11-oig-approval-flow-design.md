@@ -66,7 +66,7 @@ Thin HTTP wrapper over the Okta OIG Access Requests REST API. No business logic.
 ```python
 class OktaOIGClient:
     def __init__(self, base_url: str, api_token: str, http: AsyncClient): ...
-    async def create_request(request_type_id, requester_id, approver_group_id, subject, justification) -> dict
+    async def create_request(request_type_id, requester_id, subject, justification) -> dict  # approver group is attached to the Request Type in Okta Admin, not per-request (see §5.1, §8)
     async def get_request(request_id) -> dict
     async def list_requests(request_type_id, status) -> list[dict]
     async def add_comment(request_id, text) -> None
