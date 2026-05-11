@@ -214,3 +214,80 @@ class ApprovalService:
             intent=intent,
             submitted_at=submitted_at,
         )
+
+    # ---------- execution ----------
+
+    def _lock_for(self, request_id: str) -> asyncio.Lock:
+        lock = self._locks.get(request_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._locks[request_id] = lock
+        return lock
+
+    def _count_failed_attempts(self, comments: list[dict]) -> int:
+        return sum(1 for c in comments if (c.get("text") or "").startswith(FAILED_MARKER))
+
+    async def execute_if_approved(self, request_id: str) -> ApprovalStatus:
+        lock = self._lock_for(request_id)
+        async with lock:
+            raw = await self._oig.get_request(request_id)
+            status = self._status_from_raw(request_id, raw)
+            if status.status != "approved":
+                return status
+
+            # Check abandoned
+            if find_comment(raw.get("comments") or [], ABANDONED_MARKER):
+                status.denial_reason = "execution abandoned after repeated failures"
+                return status
+
+            intent = status.intent
+            if intent is None:
+                msg = "intent could not be decoded from justification"
+                logger.error("%s: %s", request_id, msg)
+                await self._oig.add_comment(request_id, f"{FAILED_MARKER}attempt=?:reason={msg}]")
+                status.denial_reason = msg
+                return status
+
+            attempts_so_far = self._count_failed_attempts(raw.get("comments") or [])
+            if attempts_so_far >= MAX_EXECUTION_ATTEMPTS:
+                await self._oig.add_comment(request_id, ABANDONED_MARKER)
+                status.denial_reason = "execution abandoned after repeated failures"
+                return status
+
+            # Attempt execution
+            attempt_num = attempts_so_far + 1
+            try:
+                # Mint a service token for visibility/audit even though DemoStore
+                # is local — mirrors the production flow.
+                _token = await self._mint_token(intent.scope)
+                result = self._store.update_inventory_quantity(
+                    sku=intent.product_name,
+                    quantity_change=intent.quantity_delta,
+                    operation="increase",
+                    idempotency_key=request_id,
+                )
+                if "error" in result:
+                    raise RuntimeError(result["error"])
+            except Exception as exc:  # noqa: BLE001 — we want to persist any failure as a comment
+                logger.warning("execute_if_approved attempt %d failed for %s: %s",
+                               attempt_num, request_id, exc)
+                await self._oig.add_comment(
+                    request_id, f"{FAILED_MARKER}attempt={attempt_num}:reason={exc}]"
+                )
+                status.denial_reason = None  # still approved; execution pending retry
+                return status
+
+            txn_id = f"inv_txn_{request_id[-8:]}_{attempt_num}"
+            executed_at = self._now().isoformat().replace("+00:00", "Z")
+            await self._oig.add_comment(
+                request_id,
+                f"{EXECUTED_MARKER}{txn_id}] completed at {executed_at}",
+            )
+            status.status = "executed"
+            status.executed_at = executed_at
+            status.execution_result = ExecutionResult(
+                txn_id=txn_id,
+                previous_quantity=result.get("previous_quantity", -1),
+                new_quantity=result.get("new_quantity", -1),
+            )
+            return status
