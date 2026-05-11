@@ -137,3 +137,80 @@ class ApprovalService:
         if not request_id:
             raise RuntimeError(f"OIG response missing request id: {created!r}")
         return request_id, intent
+
+    # ---------- status ----------
+
+    async def get_status(self, request_id: str) -> ApprovalStatus:
+        try:
+            raw = await self._oig.get_request(request_id)
+        except OIGUnavailable:
+            return ApprovalStatus(request_id=request_id, status="pending", intent=None, poll_error=True)
+
+        return self._status_from_raw(request_id, raw)
+
+    def _status_from_raw(self, request_id: str, raw: dict) -> ApprovalStatus:
+        justification = raw.get("justification") or ""
+        intent = decode_intent(justification)
+        comments = raw.get("comments") or []
+        executed = find_comment(comments, EXECUTED_MARKER)
+
+        oig_status = (raw.get("status") or "").upper()
+        submitted_at = raw.get("createdAt") or raw.get("created")
+        approved_at = raw.get("approvedAt")
+        approved_by = raw.get("approvedBy") or {}
+        approver = None
+        if approved_by:
+            approver = {
+                "email": approved_by.get("email") or approved_by.get("login"),
+                "display_name": approved_by.get("displayName"),
+            }
+
+        if executed:
+            # Parse "[EXECUTED:txn_id] ..." -> extract txn
+            text = executed.get("text", "")
+            txn_id = text.split(EXECUTED_MARKER, 1)[1].split("]", 1)[0]
+            return ApprovalStatus(
+                request_id=request_id,
+                status="executed",
+                intent=intent,
+                submitted_at=submitted_at,
+                approved_at=approved_at,
+                executed_at=executed.get("createdAt"),
+                approver=approver,
+                execution_result=ExecutionResult(
+                    txn_id=txn_id,
+                    previous_quantity=-1,   # not recoverable from comment; UI shows whatever the marker knows
+                    new_quantity=-1,
+                ),
+            )
+
+        if oig_status == "DENIED":
+            # Denial reason often in a comment or a "statusReason" field
+            reason = raw.get("statusReason") or ""
+            return ApprovalStatus(
+                request_id=request_id,
+                status="denied",
+                intent=intent,
+                submitted_at=submitted_at,
+                approved_at=approved_at,
+                approver=approver,
+                denial_reason=reason,
+            )
+
+        if oig_status in ("APPROVED", "COMPLETED"):
+            return ApprovalStatus(
+                request_id=request_id,
+                status="approved",
+                intent=intent,
+                submitted_at=submitted_at,
+                approved_at=approved_at,
+                approver=approver,
+            )
+
+        # Default: pending
+        return ApprovalStatus(
+            request_id=request_id,
+            status="pending",
+            intent=intent,
+            submitted_at=submitted_at,
+        )
