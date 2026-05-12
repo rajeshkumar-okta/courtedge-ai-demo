@@ -94,11 +94,13 @@ async def _approval_poller_loop():
     while True:
         try:
             svc = _get_approval_service()
-            # Okta filters server-side only by requeststatus; we fetch OPEN
-            # requests (where an approval could still be awaiting resolution
-            # or just-resolved) and filter by requestTypeId + decision
-            # client-side.
-            raw_list = await svc._oig.list_requests(request_status="OPEN")
+            # Okta filters server-side only by requeststatus. A freshly-approved
+            # request can appear as either OPEN (approvals done but workflow
+            # still transitioning) or RESOLVED (terminal). Poll both to avoid
+            # missing either. Filter by requestTypeId + decision client-side.
+            raw_open = await svc._oig.list_requests(request_status="OPEN")
+            raw_resolved = await svc._oig.list_requests(request_status="RESOLVED")
+            raw_list = raw_open + raw_resolved
             for raw in raw_list:
                 if raw.get("requestTypeId") != req_type_id:
                     continue
