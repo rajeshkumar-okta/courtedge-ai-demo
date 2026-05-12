@@ -1,13 +1,24 @@
 """Async HTTP wrapper around Okta OIG Access Requests API.
 
-Endpoints used (verify against current Okta docs at
-https://developer.okta.com/docs/reference/api/governance/ before
-going to production):
+Verified endpoint behavior (probed 2026-05-11):
 
 - POST   /governance/api/v1/requests
+    Body: {requestTypeId, subject, requesterFieldValues: [{id, value}]}
+    `requesterId` is inferred from the API token's owner and is NOT sent.
+    Returns: {id, subject, requestStatus, approvals: [...], ...}
+
 - GET    /governance/api/v1/requests/{id}
-- GET    /governance/api/v1/requests?requestTypeId=...&status=...
-- POST   /governance/api/v1/requests/{id}/comments
+    Returns the full request including requesterFieldValues, approvals, actions.
+
+- GET    /governance/api/v1/requests
+    Only supports `filter=requeststatus eq "<OPEN|PENDING|RESOLVED|...>"` and
+    `filter=lastupdated ...`. Server-side filter by requestTypeId is NOT
+    supported despite Okta's own `_links.requests.href` suggesting otherwise.
+    Callers must filter by request type client-side.
+
+There is no comments endpoint on this API; the earlier design's
+[EXECUTED:]/[EXECUTION_FAILED:] comment-based idempotency ledger has been
+moved to a backend-side JSON file (see approval_service.py).
 """
 from __future__ import annotations
 
@@ -61,7 +72,6 @@ class OktaOIGClient:
         if resp.status_code >= 500:
             raise OIGUnavailable(f"OIG {resp.status_code} on {method} {url}")
         if resp.status_code >= 400:
-            # 4xx other than 401: surface as ValueError with body for caller visibility
             raise ValueError(f"OIG {resp.status_code} on {method} {url}: {resp.text}")
         if resp.status_code == 204 or not resp.content:
             return {}
@@ -71,15 +81,22 @@ class OktaOIGClient:
         self,
         *,
         request_type_id: str,
-        requester_id: str,
         subject: str,
-        justification: str,
+        justification_field_id: str,
+        justification_value: str,
     ) -> dict[str, Any]:
+        """Create an OIG Access Request.
+
+        The justification lives inside requesterFieldValues, keyed by the
+        Request Type's custom field ID (see OKTA_OIG_JUSTIFICATION_FIELD_ID).
+        The requester identity is inferred from the API token owner.
+        """
         payload = {
             "requestTypeId": request_type_id,
-            "requesterId": requester_id,
             "subject": subject,
-            "justification": justification,
+            "requesterFieldValues": [
+                {"id": justification_field_id, "value": justification_value},
+            ],
         }
         return await self._request("POST", "/requests", json=payload)
 
@@ -87,16 +104,20 @@ class OktaOIGClient:
         return await self._request("GET", f"/requests/{request_id}")
 
     async def list_requests(
-        self, *, request_type_id: str, status: str | None = None
+        self, *, request_status: str | None = None
     ) -> list[dict[str, Any]]:
-        params: dict[str, str] = {"requestTypeId": request_type_id}
-        if status:
-            params["status"] = status
+        """List Access Requests.
+
+        `request_status` maps to Okta's top-level requestStatus values:
+        OPEN, PENDING, RESOLVED, CANCELED, EXPIRED. When omitted, returns all.
+        Callers filter by requestTypeId client-side.
+        """
+        params: dict[str, str] = {}
+        if request_status:
+            params["filter"] = f'requeststatus eq "{request_status}"'
         data = await self._request("GET", "/requests", params=params)
-        # Okta list endpoints typically return {"items": [...]} or a bare list
         if isinstance(data, list):
             return data
-        return data.get("items", []) or data.get("requests", [])
-
-    async def add_comment(self, request_id: str, text: str) -> None:
-        await self._request("POST", f"/requests/{request_id}/comments", json={"text": text})
+        # Okta returns list responses as a bare array in this envelope; keep
+        # both shapes supported defensively.
+        return data.get("data") or data.get("items") or data.get("requests") or []
