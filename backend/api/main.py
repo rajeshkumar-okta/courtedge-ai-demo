@@ -115,6 +115,9 @@ class ChatResponse(BaseModel):
     agent_flow: List[AgentFlowStep]
     token_exchanges: List[TokenExchange]
     user_info: Optional[Dict[str, Any]] = None
+    # Populated by the OIG approval gate when a high-quantity inventory write
+    # is awaiting manager approval. Null for normal responses.
+    pending_approval: Optional[Dict[str, Any]] = None
 
 
 # --- Health Check ---
@@ -236,7 +239,8 @@ async def chat(
             session_id=request.session_id or "session-1",
             agent_flow=[AgentFlowStep(**step) for step in result["agent_flow"]],
             token_exchanges=[TokenExchange(**ex) for ex in result["token_exchanges"]],
-            user_info=user_info
+            user_info=user_info,
+            pending_approval=result.get("pending_approval"),
         )
 
     except Exception as e:

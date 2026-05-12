@@ -1101,4 +1101,5 @@ If some agents were denied, acknowledge what information is missing but focus on
             "agent_flow": final_state["agent_flow"],
             "token_exchanges": final_state["token_exchanges"],
             "fga_checks": final_state["fga_checks"],
+            "pending_approval": final_state.get("pending_approval"),
         }
