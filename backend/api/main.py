@@ -73,11 +73,64 @@ def _approval_status_to_json(status) -> Dict[str, Any]:
     return data
 
 
+# --- Background Approval Poller ---
+
+import asyncio as _approval_asyncio
+
+_approval_poll_task: Optional[_approval_asyncio.Task] = None
+
+
+async def _approval_poller_loop():
+    """Periodically drain newly-approved OIG requests.
+
+    Only resolves; idempotency is enforced inside ApprovalService.execute_if_approved.
+    Never raises — swallows every error so the loop body can't take down the task.
+    """
+    interval = int(os.getenv("APPROVAL_POLL_INTERVAL_SECONDS", "60"))
+    req_type_id = os.environ.get("OKTA_OIG_INVENTORY_REQUEST_TYPE_ID")
+    if not req_type_id:
+        logger.warning("OKTA_OIG_INVENTORY_REQUEST_TYPE_ID not set; approval poller disabled")
+        return
+    while True:
+        try:
+            svc = _get_approval_service()
+            raw_list = await svc._oig.list_requests(
+                request_type_id=req_type_id,
+                status="APPROVED",
+            )
+            for raw in raw_list:
+                rid = raw.get("id")
+                if not rid:
+                    continue
+                try:
+                    await svc.execute_if_approved(rid)
+                except Exception as exc:
+                    logger.warning(f"Approval poller: execute failed for {rid}: {exc}")
+        except Exception as exc:
+            logger.warning(f"Approval poller: loop error: {exc}")
+        await _approval_asyncio.sleep(interval)
+
+
+@app.on_event("startup")
+async def _start_approval_poller():
+    global _approval_poll_task
+    _approval_poll_task = _approval_asyncio.create_task(_approval_poller_loop())
+    logger.info("Approval poller started")
+
+
 # --- Lifecycle Events ---
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on application shutdown."""
+    global _approval_poll_task
+    if _approval_poll_task is not None:
+        _approval_poll_task.cancel()
+        try:
+            await _approval_poll_task
+        except _approval_asyncio.CancelledError:
+            pass
+        logger.info("Approval poller stopped")
     logger.info("Shutting down - closing FGA client...")
     await close_fga_client()
     logger.info("FGA client closed")
@@ -524,6 +577,34 @@ async def get_approval(request_id: str):
         logger.error(f"Approval resolve failed for {request_id}: {exc}")
         # Return a JSON error rather than leak a stack trace to the client.
         raise HTTPException(status_code=502, detail=f"Approval service error: {exc}")
+
+
+# --- Approval List Endpoint ---
+
+@app.get("/api/approvals")
+async def list_approvals(user: Optional[str] = None):
+    """List OIG approval requests of the inventory-write type.
+
+    Filters by `intent.user_email == user` when the query param is supplied.
+    Returns items in OIG's native order; caller may sort/paginate client-side.
+    """
+    svc = _get_approval_service()
+    try:
+        raw_list = await svc._oig.list_requests(
+            request_type_id=os.environ["OKTA_OIG_INVENTORY_REQUEST_TYPE_ID"],
+            status=None,
+        )
+    except Exception as exc:
+        logger.warning(f"OIG list_requests failed: {exc}")
+        return {"items": [], "error": str(exc)}
+
+    items: List[Dict[str, Any]] = []
+    for raw in raw_list:
+        status = svc._status_from_raw(raw.get("id") or "", raw)
+        if user and status.intent and status.intent.user_email != user:
+            continue
+        items.append(_approval_status_to_json(status))
+    return {"items": items}
 
 
 if __name__ == "__main__":
