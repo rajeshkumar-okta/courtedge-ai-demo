@@ -308,7 +308,8 @@ async def chat(
     try:
         orchestrator = Orchestrator(
             user_token=user_token or "",
-            user_info=user_info
+            user_info=user_info,
+            approval_service=_get_approval_service(),
         )
         result = await orchestrator.process(request.message)
 
