@@ -23,6 +23,9 @@ from auth.okta_auth import get_okta_auth
 from auth.agent_config import get_all_agent_configs, DEMO_AGENTS
 from auth.fga_client import close_fga_client
 from orchestrator.orchestrator import Orchestrator
+from dataclasses import asdict
+from data.demo_store import demo_store
+from services.factory import build_approval_service
 
 # Load environment variables
 load_dotenv()
@@ -46,6 +49,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- Approval Service (lazy; constructed on first use) ---
+
+_approval_service_singleton = None
+
+
+def _get_approval_service():
+    """Return the process-wide ApprovalService, constructing on first call."""
+    global _approval_service_singleton
+    if _approval_service_singleton is None:
+        _approval_service_singleton = build_approval_service(demo_store)
+    return _approval_service_singleton
+
+
+def _approval_status_to_json(status) -> Dict[str, Any]:
+    """Serialize an ApprovalStatus dataclass (including nested dataclasses) to a JSON-safe dict."""
+    data = asdict(status)
+    # asdict() already recurses into nested dataclasses (Intent, ExecutionResult),
+    # so this is primarily just converting to a plain dict. Explicit round-trip
+    # keeps the shape stable even if ApprovalStatus grows new nested fields.
+    return data
 
 
 # --- Lifecycle Events ---
@@ -479,6 +504,26 @@ async def okta_system_logs(
             "logs": [],
             "error": str(e)
         }
+
+
+# --- Approval Resolver Endpoint ---
+
+@app.get("/api/approvals/{request_id}")
+async def get_approval(request_id: str):
+    """Resolve an OIG approval request.
+
+    Foreground fast-path: if the request is APPROVED and not yet executed,
+    the call synchronously executes the inventory write. Otherwise returns
+    current status without side effects.
+    """
+    try:
+        svc = _get_approval_service()
+        status = await svc.execute_if_approved(request_id)
+        return _approval_status_to_json(status)
+    except Exception as exc:
+        logger.error(f"Approval resolve failed for {request_id}: {exc}")
+        # Return a JSON error rather than leak a stack trace to the client.
+        raise HTTPException(status_code=502, detail=f"Approval service error: {exc}")
 
 
 if __name__ == "__main__":
