@@ -94,11 +94,14 @@ async def _approval_poller_loop():
     while True:
         try:
             svc = _get_approval_service()
-            raw_list = await svc._oig.list_requests(
-                request_type_id=req_type_id,
-                status="APPROVED",
-            )
+            # Okta filters server-side only by requeststatus; we fetch OPEN
+            # requests (where an approval could still be awaiting resolution
+            # or just-resolved) and filter by requestTypeId + decision
+            # client-side.
+            raw_list = await svc._oig.list_requests(request_status="OPEN")
             for raw in raw_list:
+                if raw.get("requestTypeId") != req_type_id:
+                    continue
                 rid = raw.get("id")
                 if not rid:
                     continue
@@ -590,17 +593,17 @@ async def list_approvals(user: Optional[str] = None):
     Returns items in OIG's native order; caller may sort/paginate client-side.
     """
     svc = _get_approval_service()
+    req_type_id = os.environ["OKTA_OIG_INVENTORY_REQUEST_TYPE_ID"]
     try:
-        raw_list = await svc._oig.list_requests(
-            request_type_id=os.environ["OKTA_OIG_INVENTORY_REQUEST_TYPE_ID"],
-            status=None,
-        )
+        raw_list = await svc._oig.list_requests(request_status=None)
     except Exception as exc:
         logger.warning(f"OIG list_requests failed: {exc}")
         return {"items": [], "error": str(exc)}
 
     items: List[Dict[str, Any]] = []
     for raw in raw_list:
+        if raw.get("requestTypeId") != req_type_id:
+            continue
         status = svc._status_from_raw(raw.get("id") or "", raw)
         if user and status.intent and status.intent.user_email != user:
             continue
