@@ -25,10 +25,12 @@ When a user asks the AI agent to update inventory by a quantity at or above a co
 ## Step 2 — Create the OIG Request Type
 
 - Identity Governance → Request Types → Create Request Type.
-- Suggested name: `AI Agent Inventory Write Approval`.
+- Suggested name: `AI Agent Inventory Write Approval` (a type named `O4AA HITL Request` works interchangeably).
 - Approver: set to the group from Step 1.
-- Default single-approver workflow is sufficient. No custom fields are required — the intent payload rides inside the built-in `justification` field.
-- Save and capture the Request Type ID (visible in the URL on the type's detail page).
+- **Add one custom TEXT field** called `Justification`. The backend serializes the intent payload into this field's value as an `[INTENT_JSON]...[/INTENT_JSON]` fenced blob, so approvers see a human-readable description above the fence and the backend round-trips the structured data underneath.
+- Save and capture TWO values:
+  - **Request Type ID** — from the URL of the type's detail page.
+  - **Justification Field ID** — not visible in the admin UI. Fastest way: once the type exists, POST an empty request to `/governance/api/v1/requests` (body `{"requestTypeId":"<id>","subject":"probe","requesterFieldValues":[]}`) with your admin API token. The response includes `requesterFieldValues[].id`. Copy that. You can cancel the probe request afterward.
 
 ## Step 3 — Create an Okta API token
 
@@ -51,6 +53,9 @@ OKTA_OIG_API_TOKEN=<token>
 # Request Type ID from Step 2
 OKTA_OIG_INVENTORY_REQUEST_TYPE_ID=<request type id>
 
+# Justification custom-field ID from Step 2
+OKTA_OIG_JUSTIFICATION_FIELD_ID=<field id>
+
 # Human-readable group label — must match the name you used in Step 1
 OKTA_APPROVER_GROUP_NAME=InventoryApprovers
 
@@ -66,7 +71,7 @@ DO NOT commit your `.env`. `.gitignore` already excludes it.
 
 ## Step 5 — Mirror values on Render and Vercel
 
-- Render (backend): Dashboard → Service → Environment → add the 7 keys above.
+- Render (backend): Dashboard → Service → Environment → add the 8 keys above.
 - Vercel (frontend): Project → Settings → Environment Variables → add `NEXT_PUBLIC_ENABLE_DEBUG_HOOKS` only (frontend doesn't read the others).
 
 ## Step 6 — Verify locally
@@ -99,7 +104,7 @@ Expected: a JSON object with a `request_id`. Refresh the Okta Admin Access Reque
 | `401 Unauthorized` from Okta in backend logs | API token expired, revoked, or lacks OIG permissions. Regenerate under Security → API → Tokens. |
 | `pending_approval` is always `null` even for 500+ units | Check the `agent_flow` last step — if `status: skipped`, the request didn't parse `inventory:write` scope. Confirm the user's message contains a clear write verb ("add", "update", "set"). |
 | Request created but approver can't see it in Okta | The approver group was not assigned to the Request Type. Edit the Request Type in Okta Admin and re-assign. |
-| Approver approves but inventory never updates | Check backend logs for the poller. Look for `[EXECUTION_FAILED]` comments on the OIG request in the Okta UI. |
+| Approver approves but inventory never updates | Check backend logs for the poller. Look for entries in `backend/data/approvals_ledger.json` (keyed by request_id) — `last_error` and `failed_attempts` fields show what's failing. |
 | Chat card shows "approval service unreachable, retrying" | Backend can't reach Okta. Verify `OKTA_OIG_BASE_URL` is correct and outbound HTTPS is not firewalled. |
 
 ## Runtime knobs
