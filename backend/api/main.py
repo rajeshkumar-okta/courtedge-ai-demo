@@ -11,13 +11,20 @@ Features:
 
 import os
 import logging
+from pathlib import Path
+
+# Load environment variables BEFORE importing modules that read env at import time
+# (fga_client reads FGA_STORE_ID etc. at module level). The repo-root .env is one
+# directory above backend/, so find it explicitly so cwd doesn't matter.
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent.parent / ".env")
+
 import httpx
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from dotenv import load_dotenv
 
 from auth.okta_auth import get_okta_auth
 from auth.agent_config import get_all_agent_configs, DEMO_AGENTS
@@ -26,9 +33,6 @@ from orchestrator.orchestrator import Orchestrator
 from dataclasses import asdict
 from data.demo_store import demo_store
 from services.factory import build_approval_service
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

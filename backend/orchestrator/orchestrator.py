@@ -574,6 +574,18 @@ Return ONLY the JSON object, no other text."""
             })
             return state
 
+        # Respect FGA's decision: if the inventory agent was denied upstream
+        # (e.g., manager on vacation, insufficient clearance), do NOT create an
+        # OIG approval request for an action the user isn't authorized to do.
+        allowed_agents = state.get("agents_to_invoke", []) or []
+        if AGENT_INVENTORY not in allowed_agents:
+            state["agent_flow"].append({
+                "step": "approval_gate",
+                "action": "FGA denied inventory agent; skipping approval request",
+                "status": "skipped",
+            })
+            return state
+
         parsed = parse_inventory_intent(state["user_message"])
         state["parsed_intent"] = parsed
 

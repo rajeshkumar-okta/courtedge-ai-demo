@@ -56,9 +56,14 @@ def find_comment(comments: list[dict[str, Any]], prefix: str) -> dict[str, Any] 
 
 
 _QTY_RE = re.compile(r"(\d+)")
+# Order matters: longer/more-specific matches come first so "basketball" wins
+# over any bare "ball" substring. Bare "ball" is intentionally absent — this is
+# a basketball-equipment demo, so "balls"/"ball" should canonicalize to the
+# default "basketball" below, keeping the inventory-agent and approval-gate
+# paths resolving the same SKU.
 _PRODUCT_KEYWORDS = (
     "basketball", "treadmill", "helmet", "glove", "shoe", "jersey",
-    "ball", "racket", "bat",
+    "racket", "bat",
 )
 
 

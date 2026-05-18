@@ -269,27 +269,50 @@ class ApprovalService:
         denial_reason: str | None = None
 
         for step in approvals:
+            # Okta uses `decision` (APPROVED/DENIED) once an approver acts, and a
+            # lifecycle `status` (PENDING/COMPLETED/…). Prefer `decision`; fall back
+            # to `status` for schemas that surface terminal state there directly.
+            decision = (step.get("decision") or "").upper()
             step_status = (step.get("status") or "").upper()
-            if step_status in ("DENIED", "REJECTED"):
+
+            resolver = step.get("resolvedBy") or step.get("approver") or {}
+            resolver_summary = {
+                "email": resolver.get("email") or resolver.get("login"),
+                "display_name": resolver.get("displayName")
+                or resolver.get("name")
+                or step.get("approverName"),
+            }
+            if not resolver_summary["email"] and not resolver_summary["display_name"]:
+                # Fall back to the approver* fields Okta returns on each step.
+                approver_id = step.get("approverId")
+                if approver_id or step.get("approverName"):
+                    resolver_summary = {
+                        "email": None,
+                        "display_name": step.get("approverName"),
+                    }
+            decided_at = (
+                step.get("decided")
+                or step.get("resolvedAt")
+                or step.get("updatedAt")
+            )
+
+            if decision in ("DENIED", "REJECTED") or step_status in ("DENIED", "REJECTED"):
                 any_denied = True
                 denial_reason = step.get("reason") or step.get("comment") or denial_reason
-                resolver = step.get("resolvedBy") or step.get("approver") or {}
-                if resolver and approver_summary is None:
-                    approver_summary = {
-                        "email": resolver.get("email") or resolver.get("login"),
-                        "display_name": resolver.get("displayName") or resolver.get("name"),
-                    }
+                if approver_summary is None and (resolver_summary["email"] or resolver_summary["display_name"]):
+                    approver_summary = resolver_summary
                 if approved_at is None:
-                    approved_at = step.get("resolvedAt") or step.get("updatedAt")
-            elif step_status == "APPROVED":
-                resolver = step.get("resolvedBy") or step.get("approver") or {}
-                if resolver and approver_summary is None:
-                    approver_summary = {
-                        "email": resolver.get("email") or resolver.get("login"),
-                        "display_name": resolver.get("displayName") or resolver.get("name"),
-                    }
+                    approved_at = decided_at
+            elif decision == "APPROVED" or step_status == "APPROVED":
+                if approver_summary is None and (resolver_summary["email"] or resolver_summary["display_name"]):
+                    approver_summary = resolver_summary
                 if approved_at is None:
-                    approved_at = step.get("resolvedAt") or step.get("updatedAt")
+                    approved_at = decided_at
+            elif step_status in ("COMPLETED", "RESOLVED") and not decision:
+                # Terminal lifecycle with no explicit decision — treat as approved
+                # only if the enclosing requestStatus is RESOLVED; otherwise pending.
+                # We can't see requestStatus here, so be conservative and pend.
+                any_pending = True
             else:  # PENDING, OPEN, anything else
                 any_pending = True
 
