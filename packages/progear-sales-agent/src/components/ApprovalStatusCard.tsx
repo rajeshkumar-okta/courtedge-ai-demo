@@ -48,6 +48,7 @@ export type ApprovalStatus = {
 
 interface Props {
   initial: ApprovalStatus;
+  onStatusChange?: (status: ApprovalStatus) => void;
 }
 
 const STATUS_STYLES: Record<
@@ -76,7 +77,7 @@ const STATUS_STYLES: Record<
   },
 };
 
-export default function ApprovalStatusCard({ initial }: Props) {
+export default function ApprovalStatusCard({ initial, onStatusChange }: Props) {
   const [status, setStatus] = useState<ApprovalStatus>(initial);
   // Default expanded so the user sees the live transition on first render.
   const [isExpanded, setIsExpanded] = useState(true);
@@ -94,7 +95,11 @@ export default function ApprovalStatusCard({ initial }: Props) {
         const res = await fetch(`${API_BASE_URL}/api/approvals/${id}`);
         if (!res.ok) return;
         const data: ApprovalStatus = await res.json();
-        if (!cancelled) setStatus(data);
+        if (cancelled) return;
+        if (data.status !== status.status) {
+          onStatusChange?.(data);
+        }
+        setStatus(data);
       } catch {
         /* swallow — next tick will retry */
       }

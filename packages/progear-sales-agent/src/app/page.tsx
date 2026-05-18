@@ -43,6 +43,7 @@ const AGENT_FLOW_STORAGE_KEY = 'progear-agent-flow';
 const TOKEN_EXCHANGE_STORAGE_KEY = 'progear-token-exchanges';
 const FGA_CHECKS_STORAGE_KEY = 'progear-fga-checks';
 const PENDING_APPROVAL_STORAGE_KEY = 'progear-pending-approval';
+const APPROVAL_ANNOUNCED_STORAGE_KEY = 'progear-approval-announced';
 
 // Decode JWT payload (for display only, no validation)
 function decodeJwtPayload(token: string): Record<string, any> | null {
@@ -175,6 +176,58 @@ export default function Home() {
     sessionStorage.removeItem(TOKEN_EXCHANGE_STORAGE_KEY);
     sessionStorage.removeItem(FGA_CHECKS_STORAGE_KEY);
     sessionStorage.removeItem(PENDING_APPROVAL_STORAGE_KEY);
+    sessionStorage.removeItem(APPROVAL_ANNOUNCED_STORAGE_KEY);
+  };
+
+  const handleApprovalStatusChange = (latest: ApprovalStatus) => {
+    setPendingApproval(latest);
+    if (latest.status !== 'executed') return;
+
+    let announced: string[] = [];
+    try {
+      announced = JSON.parse(sessionStorage.getItem(APPROVAL_ANNOUNCED_STORAGE_KEY) || '[]');
+    } catch {
+      announced = [];
+    }
+    if (announced.includes(latest.request_id)) return;
+    announced.push(latest.request_id);
+    sessionStorage.setItem(APPROVAL_ANNOUNCED_STORAGE_KEY, JSON.stringify(announced));
+
+    const intent = latest.intent ?? {};
+    const er = latest.execution_result;
+    const approverSuffix = latest.approver?.display_name
+      ? ` by ${latest.approver.display_name}`
+      : latest.approver?.email
+        ? ` by ${latest.approver.email}`
+        : '';
+    const product = intent.product_name ?? 'item';
+    const qty =
+      typeof intent.quantity_delta === 'number'
+        ? `+${intent.quantity_delta.toLocaleString()}`
+        : '';
+    const inventoryLine =
+      er && er.previous_quantity >= 0 && er.new_quantity >= 0
+        ? `Inventory for ${product}: ${er.previous_quantity.toLocaleString()} → ${er.new_quantity.toLocaleString()}${qty ? ` (${qty})` : ''}.`
+        : '';
+    const txnLine = er?.txn_id ? `Transaction: ${er.txn_id}` : '';
+
+    const body = [
+      `Your previous request ${latest.request_id} was approved${approverSuffix} and has been executed.`,
+      inventoryLine,
+      txnLine,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: `msg-${Date.now()}`,
+        role: 'assistant',
+        content: body,
+        timestamp: Date.now(),
+      },
+    ]);
   };
 
   const handleSignOut = async () => {
@@ -223,7 +276,6 @@ export default function Home() {
     setCurrentAgentFlow([{ step: 'router', action: 'Processing request...', status: 'processing' }]);
     setCurrentTokenExchanges([]);
     setCurrentFGAChecks([]);
-    setPendingApproval(null);
 
     try {
       const idToken = session?.idToken;
@@ -248,7 +300,9 @@ export default function Home() {
       setCurrentAgentFlow(data.agent_flow || []);
       setCurrentTokenExchanges(data.token_exchanges || []);
       setCurrentFGAChecks(data.fga_checks || []);
-      setPendingApproval(data.pending_approval ?? null);
+      if (data.pending_approval) {
+        setPendingApproval(data.pending_approval);
+      }
 
       const assistantMessage: Message = {
         id: `msg-${Date.now()}`,
@@ -517,7 +571,11 @@ export default function Home() {
 
           {pendingApproval && (
             <div className="mt-4">
-              <ApprovalStatusCard initial={pendingApproval} />
+              <ApprovalStatusCard
+                key={pendingApproval.request_id}
+                initial={pendingApproval}
+                onStatusChange={handleApprovalStatusChange}
+              />
             </div>
           )}
 
