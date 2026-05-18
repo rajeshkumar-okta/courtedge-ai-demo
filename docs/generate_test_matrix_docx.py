@@ -50,8 +50,8 @@ def create_test_matrix_docx():
 
     # Data
     items = [
-        ('widget-a (basketballs, general inventory)', '3'),
-        ('classified-part (sensitive military items)', '7'),
+        ('basketball (standard sporting goods)', '3'),
+        ('tactical-vest (government contract equipment)', '7'),
     ]
     for i, (item, clearance) in enumerate(items, 1):
         row = item_table.rows[i].cells
@@ -68,36 +68,36 @@ def create_test_matrix_docx():
         # Section header
         ('section', 'Manager Scenarios', '', '', '', '', '', '', ''),
         # Manager scenarios
-        ('1', 'Manager view widget-a', 'Bob', 'true', 'false', '5',
-         'How many widget-a items are in stock?', 'PASS', 'active_manager can view'),
-        ('2', 'Manager update widget-a (sufficient clearance)', 'Bob', 'true', 'false', '5',
-         'Add 50 widget-a to inventory', 'PASS', 'Clearance 5 ≥ required 3'),
-        ('3', 'Manager update classified-part (insufficient)', 'Bob', 'true', 'false', '2',
-         'Update classified-part quantity to 100', 'FAIL', 'Clearance 2 < required 7'),
-        ('4', 'Manager view classified-part (low clearance)', 'Bob', 'true', 'false', '2',
-         'Check stock for classified-part', 'PASS', 'View doesn\'t need clearance'),
+        ('1', 'Manager view basketball', 'Bob', 'true', 'false', '5',
+         'How many basketballs are in stock?', 'PASS', 'active_manager can view'),
+        ('2', 'Manager update basketball (sufficient clearance)', 'Bob', 'true', 'false', '5',
+         'Add 50 basketballs to inventory', 'PASS', 'Clearance 5 ≥ required 3'),
+        ('3', 'Manager update tactical-vest (insufficient)', 'Bob', 'true', 'false', '2',
+         'Update tactical-vest quantity to 100', 'FAIL', 'Clearance 2 < required 7'),
+        ('4', 'Manager view tactical-vest (low clearance)', 'Bob', 'true', 'false', '2',
+         'Check stock for tactical-vest', 'PASS', 'View doesn\'t need clearance'),
         ('5', 'Manager on vacation (view blocked)', 'Bob', 'true', 'true', '5',
-         'How many widget-a items are in stock?', 'FAIL', 'on_vacation blocks active_manager'),
+         'How many basketballs are in stock?', 'FAIL', 'on_vacation blocks active_manager'),
         ('6', 'Manager on vacation (update blocked)', 'Bob', 'true', 'true', '10',
-         'Add 50 widget-a to inventory', 'FAIL', 'Vacation blocks even with max clearance'),
+         'Add 50 basketballs to inventory', 'FAIL', 'Vacation blocks even with max clearance'),
         # Section header
         ('section', 'Viewer Scenarios (NEW)', '', '', '', '', '', '', ''),
         # Viewer scenarios
-        ('7', 'Non-manager view widget-a (viewer role)', 'Sarah', 'false', 'false', '7',
-         'How many widget-a items are in stock?', 'PASS', 'active_viewer can view'),
-        ('8', 'Non-manager update widget-a (denied)', 'Sarah', 'false', 'false', '7',
-         'Add 50 widget-a to inventory', 'FAIL', 'Viewers cannot update'),
+        ('7', 'Non-manager view basketball (viewer role)', 'Sarah', 'false', 'false', '7',
+         'How many basketballs are in stock?', 'PASS', 'active_viewer can view'),
+        ('8', 'Non-manager update basketball (denied)', 'Sarah', 'false', 'false', '7',
+         'Add 50 basketballs to inventory', 'FAIL', 'Viewers cannot update'),
         ('9', 'Non-manager on vacation', 'Sarah', 'false', 'true', '7',
-         'How many widget-a items are in stock?', 'FAIL', 'on_vacation blocks active_viewer'),
+         'How many basketballs are in stock?', 'FAIL', 'on_vacation blocks active_viewer'),
         # Section header
         ('section', 'Update Clearance Scenarios', '', '', '', '', '', '', ''),
         # Clearance scenarios
-        ('10', 'Manager update classified-part (sufficient)', 'Bob', 'true', 'false', '8',
-         'Update classified-part quantity to 50', 'PASS', 'Clearance 8 ≥ required 7'),
-        ('11', 'Manager update classified-part (exact match)', 'Bob', 'true', 'false', '7',
-         'Update classified-part quantity to 50', 'PASS', 'Clearance 7 = required 7'),
-        ('12', 'Viewer update widget-a (denied)', 'Sarah', 'false', 'false', '10',
-         'Add 100 widget-a to inventory', 'FAIL', 'Viewers can\'t update even with clearance 10'),
+        ('10', 'Manager update tactical-vest (sufficient)', 'Bob', 'true', 'false', '8',
+         'Update tactical-vest quantity to 50', 'PASS', 'Clearance 8 ≥ required 7'),
+        ('11', 'Manager update tactical-vest (exact match)', 'Bob', 'true', 'false', '7',
+         'Update tactical-vest quantity to 50', 'PASS', 'Clearance 7 = required 7'),
+        ('12', 'Viewer update basketball (denied)', 'Sarah', 'false', 'false', '10',
+         'Add 100 basketballs to inventory', 'FAIL', 'Viewers can\'t update even with clearance 10'),
     ]
 
     # Create main table

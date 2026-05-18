@@ -108,14 +108,14 @@
         </thead>
         <tbody>
             <tr>
-                <td><strong>widget-a</strong></td>
+                <td><strong>basketball</strong></td>
                 <td>3</td>
-                <td>General inventory items (basketballs, etc.)</td>
+                <td>Standard sporting goods inventory</td>
             </tr>
             <tr>
-                <td><strong>classified-part</strong></td>
+                <td><strong>tactical-vest</strong></td>
                 <td>7</td>
-                <td>Sensitive military contract items</td>
+                <td>Government contract / sensitive equipment</td>
             </tr>
         </tbody>
     </table>
@@ -142,45 +142,45 @@
             </tr>
             <tr>
                 <td>1</td>
-                <td>Manager view widget-a</td>
+                <td>Manager view basketball</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>5</td>
-                <td class="prompt">How many widget-a items are in stock?</td>
+                <td class="prompt">How many basketballs are in stock?</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">active_manager can view</td>
             </tr>
             <tr>
                 <td>2</td>
-                <td>Manager update widget-a (sufficient clearance)</td>
+                <td>Manager update basketball (sufficient clearance)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>5</td>
-                <td class="prompt">Add 50 widget-a to inventory</td>
+                <td class="prompt">Add 50 basketballs to inventory</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">Clearance 5 ≥ required 3</td>
             </tr>
             <tr>
                 <td>3</td>
-                <td>Manager update classified-part (insufficient)</td>
+                <td>Manager update tactical-vest (insufficient)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>2</td>
-                <td class="prompt">Update classified-part quantity to 100</td>
+                <td class="prompt">Update tactical-vest quantity to 100</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">Clearance 2 < required 7</td>
             </tr>
             <tr>
                 <td>4</td>
-                <td>Manager view classified-part (low clearance)</td>
+                <td>Manager view tactical-vest (low clearance)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>2</td>
-                <td class="prompt">Check stock for classified-part</td>
+                <td class="prompt">Check stock for tactical-vest</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">View doesn't need clearance</td>
             </tr>
@@ -191,7 +191,7 @@
                 <td class="true">true</td>
                 <td class="true">true</td>
                 <td>5</td>
-                <td class="prompt">How many widget-a items are in stock?</td>
+                <td class="prompt">How many basketballs are in stock?</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">on_vacation blocks active_manager</td>
             </tr>
@@ -202,7 +202,7 @@
                 <td class="true">true</td>
                 <td class="true">true</td>
                 <td>10</td>
-                <td class="prompt">Add 50 widget-a to inventory</td>
+                <td class="prompt">Add 50 basketballs to inventory</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">Vacation blocks even with max clearance</td>
             </tr>
@@ -213,23 +213,23 @@
             </tr>
             <tr>
                 <td>7</td>
-                <td>Non-manager view widget-a (viewer role)</td>
+                <td>Non-manager view basketball (viewer role)</td>
                 <td>Sarah</td>
                 <td class="false">false</td>
                 <td class="false">false</td>
                 <td>7</td>
-                <td class="prompt">How many widget-a items are in stock?</td>
+                <td class="prompt">How many basketballs are in stock?</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">active_viewer can view</td>
             </tr>
             <tr>
                 <td>8</td>
-                <td>Non-manager update widget-a (denied)</td>
+                <td>Non-manager update basketball (denied)</td>
                 <td>Sarah</td>
                 <td class="false">false</td>
                 <td class="false">false</td>
                 <td>7</td>
-                <td class="prompt">Add 50 widget-a to inventory</td>
+                <td class="prompt">Add 50 basketballs to inventory</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">Viewers cannot update</td>
             </tr>
@@ -240,7 +240,7 @@
                 <td class="false">false</td>
                 <td class="true">true</td>
                 <td>7</td>
-                <td class="prompt">How many widget-a items are in stock?</td>
+                <td class="prompt">How many basketballs are in stock?</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">on_vacation blocks active_viewer</td>
             </tr>
@@ -251,34 +251,34 @@
             </tr>
             <tr>
                 <td>10</td>
-                <td>Manager update classified-part (sufficient)</td>
+                <td>Manager update tactical-vest (sufficient)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>8</td>
-                <td class="prompt">Update classified-part quantity to 50</td>
+                <td class="prompt">Update tactical-vest quantity to 50</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">Clearance 8 ≥ required 7</td>
             </tr>
             <tr>
                 <td>11</td>
-                <td>Manager update classified-part (exact match)</td>
+                <td>Manager update tactical-vest (exact match)</td>
                 <td>Bob</td>
                 <td class="true">true</td>
                 <td class="false">false</td>
                 <td>7</td>
-                <td class="prompt">Update classified-part quantity to 50</td>
+                <td class="prompt">Update tactical-vest quantity to 50</td>
                 <td class="pass">PASS</td>
                 <td class="key-point">Clearance 7 = required 7</td>
             </tr>
             <tr>
                 <td>12</td>
-                <td>Viewer update widget-a (denied)</td>
+                <td>Viewer update basketball (denied)</td>
                 <td>Sarah</td>
                 <td class="false">false</td>
                 <td class="false">false</td>
                 <td>10</td>
-                <td class="prompt">Add 100 widget-a to inventory</td>
+                <td class="prompt">Add 100 basketballs to inventory</td>
                 <td class="fail">FAIL</td>
                 <td class="key-point">Viewers can't update even with clearance 10</td>
             </tr>
@@ -291,8 +291,8 @@
             <tr>
                 <th>User State</th>
                 <th>can_view</th>
-                <th>can_update (widget-a)</th>
-                <th>can_update (classified-part)</th>
+                <th>can_update (basketball)</th>
+                <th>can_update (tactical-vest)</th>
             </tr>
         </thead>
         <tbody>
@@ -363,36 +363,36 @@ type inventory_item
 
     <h2>Copy-Paste Prompts</h2>
     <pre style="background: #f5f5f5; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-# Scenario 1: Manager view widget-a
-How many widget-a items are in stock?
+# Scenario 1: Manager view basketball
+How many basketballs are in stock?
 
-# Scenario 2: Manager update widget-a
-Add 50 widget-a to inventory
+# Scenario 2: Manager update basketball
+Add 50 basketballs to inventory
 
-# Scenario 3: Manager update classified-part (insufficient clearance)
-Update classified-part quantity to 100
+# Scenario 3: Manager update tactical-vest (insufficient clearance)
+Update tactical-vest quantity to 100
 
-# Scenario 4: Manager view classified-part
-Check stock for classified-part
+# Scenario 4: Manager view tactical-vest
+Check stock for tactical-vest
 
 # Scenario 5 & 6: Manager on vacation
-How many widget-a items are in stock?
-Add 50 widget-a to inventory
+How many basketballs are in stock?
+Add 50 basketballs to inventory
 
 # Scenario 7: Non-manager view (viewer)
-How many widget-a items are in stock?
+How many basketballs are in stock?
 
 # Scenario 8: Non-manager update (denied)
-Add 50 widget-a to inventory
+Add 50 basketballs to inventory
 
 # Scenario 9: Non-manager on vacation
-How many widget-a items are in stock?
+How many basketballs are in stock?
 
-# Scenario 10 & 11: Manager update classified-part (sufficient)
-Update classified-part quantity to 50
+# Scenario 10 & 11: Manager update tactical-vest (sufficient)
+Update tactical-vest quantity to 50
 
 # Scenario 12: Viewer update (denied)
-Add 100 widget-a to inventory
+Add 100 basketballs to inventory
     </pre>
 
 </body>
